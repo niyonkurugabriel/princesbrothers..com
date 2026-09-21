@@ -1,0 +1,51 @@
+import { getSession, isSessionActive, touchSession } from "./session";
+import { verifyAccessToken } from "./jwt";
+import { signAccessToken } from "./jwt";
+import type { AuthTokenClaims, RedisSessionStore } from "./types";
+
+export const verifyActiveSession = async (
+  store: RedisSessionStore,
+  token: string,
+): Promise<Awaited<ReturnType<typeof verifyAccessToken>> | null> => {
+  try {
+    const claims = await verifyAccessToken(token);
+    if (!(await isSessionActive(store, claims.sid))) return null;
+
+    const session = await getSession(store, claims.sid);
+    if (
+      !session ||
+      session.portal !== claims.portal ||
+      (session.userId && session.userId !== claims.sub)
+    ) {
+      return null;
+    }
+    return claims;
+  } catch {
+    return null;
+  }
+};
+
+export const refreshSessionToken = async (
+  store: RedisSessionStore,
+  claims: AuthTokenClaims,
+  ttlSeconds: number,
+  now = Math.floor(Date.now() / 1000),
+): Promise<string | null> => {
+  if (!(await touchSession(store, claims.sid, ttlSeconds, now))) return null;
+
+  return signAccessToken(
+    {
+      id: claims.sub.startsWith("guest:") ? undefined : claims.sub,
+      roles: claims.roles,
+      permissions: claims.permissions,
+      contributorApproved: claims.contributorApproved,
+      emailVerified: claims.emailVerified,
+      mfaVerified: claims.mfaVerified,
+      portal: claims.portal,
+      authMethod: claims.authMethod,
+      sessionId: claims.sid
+    },
+    now + ttlSeconds,
+    now,
+  );
+};
