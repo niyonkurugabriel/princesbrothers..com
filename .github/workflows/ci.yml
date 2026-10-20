@@ -9,6 +9,22 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: mysql://root:password@127.0.0.1:3307/princesbrothers
+      AUTH_JWT_SECRET: ci-test-secret-that-is-at-least-32-characters
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: princesbrothers
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ppassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
     steps:
       - uses: actions/checkout@v4
 

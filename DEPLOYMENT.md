@@ -6,43 +6,47 @@ This document covers the production environment variables and deployment expecta
 
 Set the following variables in your deployment environment, secret manager, or Vercel/Cloud Run/AWS ECS config before shipping.
 
-- `DATABASE_URL`: PostgreSQL connection string for Prisma.
-- `REDIS_URL`: Redis URL used for session revocation and active session checks.
+- `DATABASE_URL`: MySQL connection string used by the shared `mysql2` pool.
 - `AUTH_JWT_SECRET`: Secret used to sign access tokens. Must be at least 32 characters.
 - `APP_URL`: Public URL for the storefront and portal app, such as `https://www.princesbrothers.com`.
 - `FX_RATES_JSON`: Optional JSON override for local FX rates used by payment context.
 - `STRIPE_SECRET_KEY`: Secret key for Stripe payment flows.
 - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret for Stripe events.
 - `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`: PayPal credentials for international payment routing.
-- `PAYSTACK_SECRET_KEY`: PayStack API key for African-market checkouts.
-- `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`: Optional SMS OTP for driver or customer login flows.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM`: Email delivery for contributor approval notices and order confirmations.
+- `PAYSTACK_SECRET_KEY`: Paystack secret key for centralized mobile-money and manual payment records. Configure the webhook at `/api/payments/paystack/webhook`.
+- `SMS_PROVIDER=twilio`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`: SMS verification and driver PIN recovery. Africa's Talking remains an optional alternative.
+- `COMPANY_WHATSAPP_NUMBER`: International digits-only number used for manual-payment negotiation links.
+- `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`: Google OAuth login.
+- `EMAIL_PROVIDER`, `EMAIL_FROM`, and the matching Resend, SendGrid, or Postmark token: authentication and password-reset email delivery. For Resend, set `EMAIL_PROVIDER=resend` and `RESEND_API_KEY`; verify the sender domain used by `EMAIL_FROM`.
 - `SENTRY_DSN`: Optional monitoring and error reporting endpoint.
 
 ## Recommended deployment layout
 
 - Web app: Next.js server deployment
-- Database: managed PostgreSQL instance
-- Cache/session store: managed Redis
+- Database and session store: managed MySQL 8 instance
 - Static assets: CDN or S3-backed delivery
+- Private contributor chat attachments: persistent private storage mounted at `storage/contributor-chat` (not the public web directory)
 - Secrets: environment or secret manager, never committed to source control
 
 ## Production checklist
 
-1. Set `DATABASE_URL` to the production database and run Prisma migrations.
-2. Set `REDIS_URL` to the production Redis instance.
-3. Generate a strong `AUTH_JWT_SECRET` and rotate it during release windows.
-4. Configure payment providers and webhook endpoints for Stripe, PayPal, and Paystack.
-5. Confirm `APP_URL` matches the public domain used by login redirects and cookie policies.
-6. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
-7. Verify database connectivity, Redis health, and SMTP delivery before enabling production checkout.
+1. Set `DATABASE_URL` to the production database and run `npm run db:migrate`. Fresh databases use the single schema file `db/database_pb.sql`; existing MySQL schemas receive additive updates from the runner.
+2. Generate a strong `AUTH_JWT_SECRET` and rotate it during release windows.
+3. Configure the company Paystack account and its webhook endpoint at `/api/payments/paystack/webhook`.
+4. Confirm `APP_URL` matches the public domain used by login redirects and cookie policies.
+5. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+6. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and the Paystack webhook before enabling production authentication and checkout.
+
+### Google OAuth redirect URI
+
+The redirect URI sent to Google must exactly match an entry under **Google Cloud Console → APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized redirect URIs** for the same client ID used by the app. For local development, add `http://localhost:3000/api/auth/google/callback` (no trailing slash) and set `GOOGLE_REDIRECT_URI` to that exact value in `.env`. For production, register and configure the exact HTTPS callback, for example `https://www.princesbrothers.com/api/auth/google/callback`. After saving the Google credential and environment values, restart the app. The app uses the configured URI for both the authorization request and the code exchange.
 
 ## Example .env block
 
 ```bash
-DATABASE_URL="postgresql://postgres:postgres@host:5432/princess_and_brothers?schema=public"
-REDIS_URL="redis://host:6379"
-AUTH_JWT_SECRET="replace-with-a-random-secret-at-least-32-characters-long"
+DATABASE_URL="mysql://user:password@host:3306/princesbrothers"
+APP_URL="https://www.princesbrothers.com"
+AUTH_JWT_SECRET=""
 APP_URL="https://www.princesbrothers.com"
 FX_RATES_JSON='{"USD":1,"RWF":1350,"KES":129,"UGX":3700,"TZS":2500,"BIF":2900,"NGN":1600,"GHS":15,"ZAR":18}'
 STRIPE_SECRET_KEY="sk_live_..."
@@ -50,6 +54,11 @@ STRIPE_WEBHOOK_SECRET="whsec_..."
 PAYPAL_CLIENT_ID="..."
 PAYPAL_CLIENT_SECRET="..."
 PAYSTACK_SECRET_KEY="..."
+SMS_PROVIDER="twilio"
+TWILIO_ACCOUNT_SID="..."
+TWILIO_AUTH_TOKEN="..."
+TWILIO_PHONE_NUMBER="+1..."
+COMPANY_WHATSAPP_NUMBER="250791702041"
 ```
 
-For local development, copy `.env.example` to `.env` and use the bundled `docker-compose.yml` setup to start Postgres and Redis in containers.
+For local development, copy `.env.example` to `.env`, set a generated `AUTH_JWT_SECRET` of at least 32 characters, start MySQL on port 3306 (or update `DATABASE_URL` to match), create the `princesbrothers` database, and run `npm run db:migrate`.

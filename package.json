@@ -3,15 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "description": "Princess & Brothers e-commerce platform",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "frontend",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "npm run dev --workspace=@princess-brothers/web",
+    "predev": "node --env-file=.env scripts/check-local-services.mjs",
     "build": "npm run build --workspace=@princess-brothers/web",
     "lint": "npm run lint --workspaces --if-present",
     "typecheck": "npm run typecheck --workspace=@princess-brothers/web && npm run typecheck --workspace=@princess-brothers/db && npm run typecheck --workspace=@princess-brothers/ui",
     "test": "vitest run",
-    "db:generate": "npm run db:generate --workspace=@princess-brothers/db",
-    "db:push": "npm run db:push --workspace=@princess-brothers/db"
+    "db:create": "npm run db:create --workspace=@princess-brothers/db",
+    "db:migrate": "npm run db:migrate --workspace=@princess-brothers/db",
+    "db:seed": "npm run db:seed --workspace=@princess-brothers/db",
+    "db:smoke": "node --env-file=.env db/smoke-test.js"
   },
   "devDependencies": {
     "@types/node": "^20.17.30",
@@ -20,5 +26,15 @@
     "typescript": "^5.8.2",
     "vitest": "^2.1.9"
   },
-  "engines": { "node": ">=20.0.0" }
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "mysql2": "^3.24.4"
+  },
+  "overrides": {
+    "next": {
+      "postcss": "^8.5.28"
+    }
+  }
 }

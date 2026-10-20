@@ -1,0 +1,11 @@
+{
+	"extends": ["next/core-web-vitals"],
+	"env": { "browser": true, "es2022": true },
+	"parserOptions": { "ecmaVersion": "latest", "sourceType": "module", "ecmaFeatures": { "jsx": true } },
+	"rules": {
+		"no-undef": "error",
+		"no-unused-vars": ["error", { "argsIgnorePattern": "^[_A-Z]", "varsIgnorePattern": "^[A-Z_]" }]
+	},
+	"overrides": [{ "files": ["*.ts", "*.tsx"], "rules": { "no-undef": "off" } }],
+	"ignorePatterns": [".next/", "dist/", "node_modules/"]
+}

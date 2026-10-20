@@ -1,0 +1,62 @@
+VPS Activation Details
+Your new VPS is ready to go.
+
+Dear NIYONKURU Gabriel,
+
+Your new VPS has been setup successfully!
+
+Server Details
+Package	KVM Linux VPS Slice (Ubuntu 1 Slices)
+Hostname	vps3709178
+IP Address	162.35.10.21
+Password	For your first step we suggest changing your server root password. Please use passwords at least 8 characters in length that mix letters, numbers and special characters
+Logging In with SSH
+Requirement	Download SSH client (Putty recommended).
+IP/Hostname	Input your VPS IP address listed above into the Hostname/IP address box.
+Port	22
+Protocol	SSH
+Username	root
+Password	Your password is not listed here for security reasons. You selected a root password when ordering this VPS. if you need to reset it please to go https://my.interserver.net
+Control Panels (only if you ordered one!)
+Note	Control panel can take 2-3 hours to finish installing. You may not be able to login right away!
+CPANEL/WHM
+Reference	Please refer to the cPanel & WHM documentation for installation and configuration options
+Documentation	http://docs.cpanel.net/twiki/bin/view/AllDocumentation/WHMDocs/WebHome
+Direct Admin Details
+URL	http://162.35.10.21:2222/
+Username	admin
+Password	Your password is not listed here for security reasons. You selected a root password when ordering this VPS. if you need to reset it please to go https://my.interserver.net/
+Important Links
+Helpdesk	https://interserver.net/resolve/
+Control Panel	https://my.interserver.net/
+Network Tools	https://www.interserver.net/network-tools.html
+DNS Servers
+Menu	Go to Domains->DNS Manager to use our free DNS servers.
+To use our free dns servers set your domain names to point to
+Primary DNS	cdns1.interserver.net 209.159.155.28
+Secondary DNS	cdns2.interserver.net 66.45.228.248
+From our DNS Manager you can add and manage each DNS record on the fly.
+Contact information
+URL	https://www.interserver.net/contactus.php
+Email	support@interserver.net
+Phone	877-566-8398 or 201-605-1440
+Abuse Response Center
+
+If your email account uses spam filtering please whitelist the address abuse@interserver.net which all abuse reports will be sent from. Reports will be sent to the admin contact on file in our billing system and are expected to be resolved in 72 hours.
+
+Auto Renewal
+
+Your vps3709178 will automatically renew on 2026-11-11 16:45:22 for $3.00 and will continue to renew every 1 month(s) until you cancel.
+
+Manage or cancel auto-renewal in your customer portal. You can also email billing@interserver.net, call 877-566-8398, or write to InterServer, PO BOX 1707 Englewood Cliffs NJ 07632.
+
+See our Terms & Conditions and Privacy Policy.
+
+Comments or suggestions? Email support@interserver.net.
+
+Thank you,
+
+The InterServer Team
+
+
+root password= sT8sFvB?

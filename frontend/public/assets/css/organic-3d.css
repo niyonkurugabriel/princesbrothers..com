@@ -1,0 +1,427 @@
+/* =========================================================
+   ORGANIC 3D UI KIT
+   Drop this file in AFTER your bootstrap.min.css link.
+   Palette: forest green, leaf green, chocolate, apple red
+   ========================================================= */
+
+:root {
+  --organic-green:  #2E5E3A;   /* primary - forest green   */
+  --organic-leaf:   #6FA85A;   /* accent  - fresh leaf      */
+  --organic-choc:   #4A2E1E;   /* accent  - dark chocolate  */
+  --organic-choc-l: #7A5236;   /* lighter chocolate for text on dark */
+  --organic-red:    #D22B2B;   /* accent  - apple red       */
+  --organic-red-l:  #F05656;   /* apple-red highlight (gloss) */
+  --organic-cream:  #F8F4E9;   /* page background           */
+  --organic-card:   #FFFFFF;   /* card background           */
+}
+
+body {
+  background-color: var(--organic-cream);
+}
+
+/* ---------------------------------------------------------
+   1. 3D PRODUCT CARD
+   Usage:
+   <div class="organic-card-3d">
+     <span class="organic-ribbon">Organic</span>
+     <img src="..." class="organic-card-3d__img">
+     <div class="organic-card-3d__body">
+       <h5>Product name</h5>
+       <p class="organic-card-3d__price">$4.99</p>
+       <button class="btn-3d btn-3d-green w-100">Add to cart</button>
+     </div>
+   </div>
+--------------------------------------------------------- */
+.organic-card-3d {
+  position: relative;
+  background: var(--organic-card);
+  border-radius: 14px;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  perspective: 800px;
+  transition: transform .35s ease, box-shadow .35s ease;
+  box-shadow:
+    0 1px 2px rgba(74, 46, 30, .10),
+    0 10px 20px rgba(46, 94, 58, .14),
+    0 24px 38px rgba(46, 94, 58, .10);
+}
+
+.organic-card-3d:hover {
+  transform: translateY(-8px) rotateX(4deg) rotateY(-3deg);
+  box-shadow:
+    0 2px 4px rgba(74, 46, 30, .14),
+    0 18px 30px rgba(46, 94, 58, .20),
+    0 32px 50px rgba(210, 43, 43, .14);
+}
+
+/* When organic-3d.js is loaded, it takes over rotateX/rotateY per pointer
+   position for a richer effect and adds this class; plain CSS hover above
+   still works everywhere else (no-JS fallback, touch, reduced motion). */
+.organic-card-3d.is-tilting {
+  transition: box-shadow .35s ease;
+}
+
+.organic-card-3d__img {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+  display: block;
+}
+
+.organic-card-3d__body {
+  padding: 1rem 1.1rem 1.25rem;
+}
+
+.organic-card-3d__price {
+  font-weight: 700;
+  color: var(--organic-choc);
+  margin-bottom: .75rem;
+}
+
+/* chocolate "organic" ribbon, folded-corner 3D look */
+.organic-ribbon {
+  position: absolute;
+  top: 14px;
+  left: -6px;
+  background: var(--organic-choc);
+  color: #fff;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  padding: .3rem .75rem;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, .25);
+  z-index: 2;
+}
+.organic-ribbon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -6px;
+  border-width: 6px 6px 0 0;
+  border-style: solid;
+  border-color: #2c1a10 transparent transparent transparent;
+}
+
+/* ---------------------------------------------------------
+   2. 3D BUTTONS  (skeuomorphic "pressable" style)
+   Usage: <button class="btn-3d btn-3d-green">Shop now</button>
+   Variants: btn-3d-green / btn-3d-red / btn-3d-choc
+--------------------------------------------------------- */
+.btn-3d {
+  position: relative;
+  border: none;
+  border-radius: 10px;
+  padding: .65rem 1.4rem;
+  font-weight: 600;
+  color: #fff;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.btn-3d:active {
+  transform: translateY(3px);
+}
+
+.btn-3d-green {
+  background: var(--organic-green);
+  box-shadow: 0 5px 0 #1E4127, 0 10px 16px rgba(46, 94, 58, .35);
+}
+.btn-3d-green:active { box-shadow: 0 2px 0 #1E4127, 0 4px 8px rgba(46, 94, 58, .35); }
+
+.btn-3d-red {
+  background: linear-gradient(160deg, var(--organic-red-l) 0%, var(--organic-red) 55%);
+  box-shadow: 0 5px 0 #8E1414, 0 10px 16px rgba(210, 43, 43, .35);
+}
+.btn-3d-red:active { box-shadow: 0 2px 0 #8E1414, 0 4px 8px rgba(210, 43, 43, .35); }
+
+.btn-3d-choc {
+  background: var(--organic-choc);
+  box-shadow: 0 5px 0 #2C1A10, 0 10px 16px rgba(74, 46, 30, .35);
+}
+.btn-3d-choc:active { box-shadow: 0 2px 0 #2C1A10, 0 4px 8px rgba(74, 46, 30, .35); }
+
+/* ---------------------------------------------------------
+   3. 3D CATEGORY BADGES (round icon tiles)
+   Usage:
+   <div class="badge-3d badge-3d-leaf"><i class="bi bi-flower1"></i></div>
+--------------------------------------------------------- */
+.badge-3d {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #fff;
+  margin: 0 auto;
+  transition: transform .25s ease;
+}
+.badge-3d:hover { transform: translateY(-4px) scale(1.05); }
+
+.badge-3d-leaf  { background: radial-gradient(circle at 30% 30%, var(--organic-leaf), var(--organic-green)); box-shadow: 0 10px 18px rgba(46, 94, 58, .35); }
+.badge-3d-choc  { background: radial-gradient(circle at 30% 30%, var(--organic-choc-l), var(--organic-choc)); box-shadow: 0 10px 18px rgba(74, 46, 30, .35); }
+.badge-3d-red   { background: radial-gradient(circle at 30% 30%, var(--organic-red-l), var(--organic-red)); box-shadow: 0 10px 18px rgba(210, 43, 43, .35); }
+
+/* gentle continuous float, so the page feels alive without being busy */
+.badge-3d { animation: organic-float 3.6s ease-in-out infinite; }
+.badge-3d:nth-child(2n) { animation-delay: -1.2s; }
+.badge-3d:nth-child(3n) { animation-delay: -2.4s; }
+@keyframes organic-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.badge-3d:hover { animation-play-state: paused; }
+
+/* ---------------------------------------------------------
+   4. 3D PRICE / SALE TAG
+   Usage: <span class="price-tag-3d">-20%</span>
+--------------------------------------------------------- */
+.price-tag-3d {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: radial-gradient(circle at 30% 30%, var(--organic-red-l), var(--organic-red));
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+  padding: .35rem .6rem;
+  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 12px rgba(210, 43, 43, .45), inset 0 2px 2px rgba(255,255,255,.35);
+  z-index: 2;
+}
+
+/* ---------------------------------------------------------
+   6. GLASS / TRANSPARENCY LAYER
+   For navbars, headers, footers, and any section/div you want
+   to feel like it's floating above the page. All of these also
+   get a cursor-following highlight once organic-3d.js runs
+   (it sets --mx / --my on mousemove).
+--------------------------------------------------------- */
+
+/* --- Navbar --- */
+.organic-navbar-3d {
+  background: rgba(255, 255, 255, .55);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border-bottom: 1px solid rgba(255, 255, 255, .4);
+  box-shadow: 0 8px 24px rgba(46, 94, 58, .10);
+  transition: box-shadow .3s ease, background .3s ease;
+}
+.organic-navbar-3d.is-scrolled {
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 12px 28px rgba(46, 94, 58, .16);
+}
+
+.organic-nav-link-3d {
+  position: relative;
+  color: var(--organic-choc) !important;
+  padding: .4rem .2rem !important;
+  margin: 0 .6rem;
+  transition: color .2s ease, transform .2s ease;
+}
+.organic-nav-link-3d::after {
+  content: "";
+  position: absolute;
+  left: 0; bottom: -2px;
+  width: 0; height: 2px;
+  background: var(--organic-green);
+  transition: width .25s ease;
+}
+.organic-nav-link-3d:hover,
+.organic-nav-link-3d:focus-visible {
+  color: var(--organic-green) !important;
+  transform: translateY(-2px);
+}
+.organic-nav-link-3d:hover::after,
+.organic-nav-link-3d:focus-visible::after { width: 100%; }
+
+/* --- Generic glass panel: use on header/section/div/aside --- */
+.organic-glass {
+  position: relative;
+  background: rgba(255, 255, 255, .45);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, .5);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(46, 94, 58, .12);
+  overflow: hidden;
+}
+/* cursor spotlight, driven by --mx/--my set from organic-3d.js */
+.organic-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%),
+              rgba(255, 255, 255, .55), transparent 65%);
+  opacity: 0;
+  transition: opacity .3s ease;
+  pointer-events: none;
+}
+.organic-glass:hover::before { opacity: 1; }
+
+/* dark variant, for a chocolate-toned hero/footer background */
+.organic-glass-dark {
+  background: rgba(74, 46, 30, .55);
+  border-color: rgba(255, 255, 255, .12);
+  color: #fff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .28);
+}
+.organic-glass-dark::before {
+  background: radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%),
+              rgba(255, 255, 255, .18), transparent 65%);
+}
+
+/* --- Footer --- */
+.organic-footer-3d {
+  background: linear-gradient(180deg, rgba(74, 46, 30, .92), rgba(44, 26, 16, .97));
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #EFE4D8;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+}
+.organic-footer-3d a { color: #EFE4D8; opacity: .85; transition: opacity .2s ease, transform .2s ease; }
+.organic-footer-3d a:hover { opacity: 1; transform: translateX(3px); }
+
+/* --- Glass button variant: pair with any btn-3d-* --- */
+.btn-3d.btn-glass {
+  position: relative;
+  background: rgba(255, 255, 255, .12);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, .5);
+  color: var(--organic-choc);
+  box-shadow: 0 6px 16px rgba(46, 94, 58, .18);
+  overflow: hidden;
+}
+.btn-3d.btn-glass::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: radial-gradient(120px circle at var(--mx, 50%) var(--my, 50%),
+              rgba(255, 255, 255, .55), transparent 70%);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.btn-3d.btn-glass:hover::before { opacity: 1; }
+.btn-3d.btn-glass:active { transform: translateY(2px); }
+
+/* colored-outline glass buttons, transparent fill + solid ring */
+.btn-3d.btn-glass-green { border-color: var(--organic-green); color: var(--organic-green); }
+.btn-3d.btn-glass-red   { border-color: var(--organic-red);   color: var(--organic-red); }
+.btn-3d.btn-glass-choc  { border-color: var(--organic-choc);  color: var(--organic-choc); }
+
+/* --- Generic section wrapper: subtle parallax blob following the cursor --- */
+.organic-section-3d {
+  position: relative;
+  overflow: hidden;
+}
+.organic-section-3d::after {
+  content: "";
+  position: absolute;
+  width: 420px; height: 420px;
+  left: var(--mx, 50%); top: var(--my, 50%);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(111, 168, 90, .16), transparent 70%);
+  pointer-events: none;
+  transition: opacity .3s ease;
+  opacity: 0;
+  z-index: 0;
+}
+.organic-section-3d:hover::after { opacity: 1; }
+.organic-section-3d > * { position: relative; z-index: 1; }
+
+/* ---------------------------------------------------------
+   7. RESPONSIVENESS
+   Applies to every page using these classes: navbar buttons,
+   product grids, single-product view, cart, checkout, footer.
+--------------------------------------------------------- */
+@media (max-width: 991.98px) {
+  .organic-card-3d__img { height: 170px; }
+  .badge-3d { width: 56px; height: 56px; font-size: 1.3rem; }
+  .organic-glass, .organic-glass-dark { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+}
+
+@media (max-width: 767.98px) {
+  .organic-card-3d:hover { transform: translateY(-4px); } /* less tilt, still lifts */
+  .btn-3d { padding: .6rem 1.1rem; width: 100%; }          /* full-width tap targets */
+  .organic-card-3d__img { height: 150px; }
+  .badge-3d { width: 50px; height: 50px; font-size: 1.15rem; }
+  .organic-nav-link-3d { margin: 0; padding: .5rem 0 !important; }
+  .organic-navbar-3d { backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+}
+
+@media (max-width: 575.98px) {
+  .organic-card-3d__body { padding: .85rem .9rem 1rem; }
+  .price-tag-3d { width: 38px; height: 38px; font-size: .7rem; top: 10px; right: 10px; }
+  .organic-ribbon { font-size: .65rem; padding: .25rem .6rem; }
+  .organic-glass, .organic-glass-dark { border-radius: 12px; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .organic-section-3d::after { width: 260px; height: 260px; }
+}
+
+/* Touch devices: no hover/pointer-tilt, so give a light tap-feedback instead */
+@media (hover: none) {
+  .organic-card-3d:hover,
+  .organic-card-3d.is-tilting { transform: none; }
+  .organic-card-3d:active { transform: scale(.985); }
+  .organic-glass::before, .organic-section-3d::after { display: none; } /* spotlight needs a real cursor */
+}
+
+/* ---------------------------------------------------------
+   Respect users who prefer reduced motion
+--------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .organic-card-3d, .badge-3d, .btn-3d { transition: none; animation: none; }
+  .organic-card-3d:hover { transform: none; }
+}
+
+  .organic-flex { display: flex; gap: 1rem; }
+  .organic-flex-center { align-items: center; justify-content: center; }
+  .organic-flex-between { align-items: center; justify-content: space-between; }
+  .organic-flex-col { flex-direction: column; }
+  .organic-flex-stack-mobile { align-items: center; }
+  .organic-click-ripple {
+    animation: organic-click-ripple 620ms ease-out forwards;
+    background: radial-gradient(circle, rgba(255,255,255,.48) 0, rgba(255,255,255,.2) 34%, transparent 72%);
+    border-radius: 50%;
+    pointer-events: none;
+    position: absolute;
+    transform: scale(0);
+    z-index: 5;
+  }
+  @keyframes organic-click-ripple {
+    to { opacity: 0; transform: scale(1); }
+  }
+
+  .organic-water {
+    isolation: isolate;
+    overflow: hidden;
+    position: relative;
+  }
+  .organic-water::after {
+    animation: organic-water-shimmer 7s ease-in-out infinite;
+    background: linear-gradient(115deg, transparent 18%, rgba(255,255,255,.04) 36%, rgba(255,255,255,.2) 48%, rgba(255,255,255,.04) 60%, transparent 78%);
+    background-size: 220% 100%;
+    content: "";
+    inset: 0;
+    pointer-events: none;
+    position: absolute;
+    z-index: 0;
+  }
+  .organic-water > * { position: relative; z-index: 1; }
+  @keyframes organic-water-shimmer {
+    0%, 35% { background-position: 150% 0; }
+    75%, 100% { background-position: -120% 0; }
+  }
+
+  @media (max-width: 767.98px) {
+    .organic-flex-stack-mobile { align-items: stretch; flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .organic-water::after { animation: none; }
+  }

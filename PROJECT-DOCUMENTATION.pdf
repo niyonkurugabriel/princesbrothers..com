@@ -1,0 +1,296 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [4 0 R 6 0 R 8 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 5 0 R >>
+endobj
+5 0 obj
+<< /Length 2616 >>
+stream
+BT
+/F1 10 Tf
+50 750 Td
+14 TL
+(PRINCESS & BROTHERS?) Tj
+T*
+(PROJECT DOCUMENTATION?) Tj
+T*
+(Updated: October 2026?) Tj
+T*
+(?) Tj
+T*
+(OVERVIEW?) Tj
+T*
+(Princess & Brothers is a full-stack produce storefront and operations platform. It?) Tj
+T*
+(is built as a TypeScript monorepo with a Next.js App Router web application, MySQL?) Tj
+T*
+(database, and shared database and UI workspaces.?) Tj
+T*
+(?) Tj
+T*
+(TECHNOLOGY?) Tj
+T*
+(- Node.js 20 or newer and npm workspaces?) Tj
+T*
+(- Next.js 15, React 18, and TypeScript?) Tj
+T*
+(- MySQL 8 using parameterized mysql2 queries?) Tj
+T*
+(- Tailwind CSS, Bootstrap, and custom responsive CSS?) Tj
+T*
+(- Vitest for unit and integration tests?) Tj
+T*
+(?) Tj
+T*
+(REPOSITORY MAP?) Tj
+T*
+(- frontend/app: Next.js pages, layouts, API routes, sitemap, and server actions?) Tj
+T*
+(- frontend/features: storefront, authentication, admin, driver, contributor,?) Tj
+T*
+(payment, and privacy feature code?) Tj
+T*
+(- frontend/shared: shared server utilities?) Tj
+T*
+(- db: schema, migrations, seed scripts, and database smoke tests?) Tj
+T*
+(- packages/db: shared typed database package?) Tj
+T*
+(- packages/ui: shared UI package?) Tj
+T*
+(- scripts: local development preflight checks?) Tj
+T*
+(?) Tj
+T*
+(LOCAL DEVELOPMENT?) Tj
+T*
+(Requirements: Node.js 20+, npm 10+, and MySQL 8.?) Tj
+T*
+(?) Tj
+T*
+(1. Create a MySQL database named princesbrothers and start MySQL on the host and?) Tj
+T*
+(port configured in DATABASE_URL \(the default is 127.0.0.1:3306\).?) Tj
+T*
+(2. Install packages from the repository root with: npm install?) Tj
+T*
+(3. Copy .env.example to .env and configure DATABASE_URL and AUTH_JWT_SECRET.?) Tj
+T*
+(AUTH_JWT_SECRET must contain at least 32 characters.?) Tj
+T*
+(4. Apply the database schema with: npm run db:migrate?) Tj
+T*
+(5. Optionally load starter catalog data with: npm run db:seed?) Tj
+T*
+(6. Start development with: npm run dev?) Tj
+T*
+(7. Open: http://localhost:3000?) Tj
+T*
+(?) Tj
+T*
+(The root development command checks that MySQL is reachable before starting.?) Tj
+T*
+(The web workspace may be run directly with?) Tj
+T*
+("npm run dev --workspace=@princess-brothers/web", but data-backed features still?) Tj
+T*
+(require MySQL.?) Tj
+T*
+(?) Tj
+T*
+(IMPORTANT COMMANDS?) Tj
+T*
+(- npm run dev: preflight and start the web application?) Tj
+T*
+(- npm run build: production build?) Tj
+T*
+(- npm run lint: run available workspace linters?) Tj
+T*
+(- npm run typecheck: typecheck web, database, and UI workspaces?) Tj
+T*
+(- npm test: run Vitest tests?) Tj
+T*
+(- npm run db:migrate: apply schema and migrations?) Tj
+T*
+(- npm run db:seed: load initial database data?) Tj
+T*
+ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 7 0 R >>
+endobj
+7 0 obj
+<< /Length 3121 >>
+stream
+BT
+/F1 10 Tf
+50 750 Td
+14 TL
+(- npm run db:smoke: exercise database connectivity and CRUD smoke checks?) Tj
+T*
+(?) Tj
+T*
+(PUBLIC ROUTES AND FEATURES?) Tj
+T*
+(- /: produce storefront and product/category highlights?) Tj
+T*
+(- /products: searchable and filterable product catalog?) Tj
+T*
+(- /products/{id}: product details?) Tj
+T*
+(- /cart and /checkout: basket and checkout?) Tj
+T*
+(- /login: customer log in, account creation, and Google sign-in?) Tj
+T*
+(- /account and /orders: customer account and order history?) Tj
+T*
+(- /privacy-policy and /terms-and-conditions: published policy pages?) Tj
+T*
+(- /sitemap.xml: generated public-route sitemap, including active catalog products?) Tj
+T*
+(?) Tj
+T*
+(The header includes account sign-in/sign-up choices, an account-management link,?) Tj
+T*
+(cart access, contributor/driver shortcuts, and a light/dark theme button. The theme?) Tj
+T*
+(choice is held in sessionStorage, so it remains for the current browser tab?) Tj
+T*
+(session and is not saved as a permanent preference.?) Tj
+T*
+(?) Tj
+T*
+(DRIVER PORTAL?) Tj
+T*
+(Drivers sign in at /driver/login and use /driver for their dashboard. The dashboard?) Tj
+T*
+(shows the logged-in driver's assigned deliveries for today, recipient/address?) Tj
+T*
+(details, route navigation, and delivery progress. Drivers can update delivery?) Tj
+T*
+(status and manage their own vehicle details, service locations, and payout?) Tj
+T*
+(accounts. Server actions verify an active driver session and scope reads/writes?) Tj
+T*
+(to that driver's database record; one driver cannot edit another driver's routes?) Tj
+T*
+(or settings.?) Tj
+T*
+(?) Tj
+T*
+(OTHER PORTALS?) Tj
+T*
+(- /partner: contributor access and application?) Tj
+T*
+(- /partner/dashboard: contributor dashboard for authorized contributors?) Tj
+T*
+(- /admin/dashboard: administration?) Tj
+T*
+(- /login/admin: administrator sign-in?) Tj
+T*
+(?) Tj
+T*
+(Accountant admins can access the private income/expense ledger and reports.?) Tj
+T*
+(Ledger visibility is restricted to the accountant account that recorded each?) Tj
+T*
+(transaction. Apply the current migrations before using the finance workflow.?) Tj
+T*
+(?) Tj
+T*
+(AUTHENTICATION AND CONFIGURATION?) Tj
+T*
+(Authentication uses httpOnly session cookies and MySQL-backed session state.?) Tj
+T*
+(Storefront accounts support password and Google sign-in. Drivers use a phone?) Tj
+T*
+(number and PIN. Admin accounts use password and TOTP. Contributors are subject?) Tj
+T*
+(to verification and approval. Keep provider credentials and signing secrets in?) Tj
+T*
+(.env or the deployment secret manager; never commit credentials.?) Tj
+T*
+(?) Tj
+T*
+(For local Google OAuth, register this exact authorized redirect URI in the Google?) Tj
+T*
+(Cloud Console and set GOOGLE_REDIRECT_URI to the same value:?) Tj
+T*
+(http://localhost:3000/api/auth/google/callback?) Tj
+T*
+(?) Tj
+T*
+(Common configuration variables are documented in .env.example and DEPLOYMENT.md.?) Tj
+T*
+(Provider credentials are needed only for enabled services such as Google OAuth,?) Tj
+T*
+(SMS, email, or payment gateways.?) Tj
+T*
+(?) Tj
+T*
+(DEPLOYMENT AND OPERATIONS?) Tj
+T*
+ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 9 0 R >>
+endobj
+9 0 obj
+<< /Length 759 >>
+stream
+BT
+/F1 10 Tf
+50 750 Td
+14 TL
+(Use npm run build, npm run typecheck, and npm test before deployment. Configure?) Tj
+T*
+(production DATABASE_URL, APP_URL, AUTH_JWT_SECRET, and the enabled provider?) Tj
+T*
+(credentials. Set APP_URL to the public canonical origin so generated sitemap?) Tj
+T*
+(links use the production domain. Apply migrations before enabling features that?) Tj
+T*
+(depend on new schema.?) Tj
+T*
+(?) Tj
+T*
+(Do not expose private account, order, driver, contributor, or administrator data?) Tj
+T*
+(in public pages or the sitemap. Review DEPLOYMENT.md for environment setup and?) Tj
+T*
+(release guidance. Legal/privacy text is operational documentation and should be?) Tj
+T*
+(reviewed by qualified counsel before production use.?) Tj
+T*
+() Tj
+T*
+ET
+endstream
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000197 00000 n 
+0000000323 00000 n 
+0000002991 00000 n 
+0000003117 00000 n 
+0000006290 00000 n 
+0000006416 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+7226
+%%EOF
