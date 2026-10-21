@@ -6,6 +6,7 @@ import { convertAmount, formatLocalAmount } from "@/features/payments/payment-co
 import { advanceAdminOrder, approveAdminPayment, assignAdminDriver, createAdminAccount, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 type AdminUser = {
   id: string;
@@ -139,10 +140,11 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
     const formData = new FormData(form);
     const username = String(formData.get("username") ?? "").trim();
     const fullName = String(formData.get("fullName") ?? "").trim();
-    const password = String(formData.get("password") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+    const confirmPassword = String(formData.get("confirmPassword") ?? "");
     const roleId = String(formData.get("roleId") ?? "");
 
-    const result = await createAdminAccount({ username, fullName, password, roleId });
+    const result = await createAdminAccount({ username, fullName, password, confirmPassword, roleId });
     if (!result.ok || !result.adminUser) {
       setToast(result.error ?? "Unable to create admin account");
       window.setTimeout(() => setToast(""), 3200);
@@ -212,15 +214,16 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
       {section === "Payment settings" && <PaymentSettings code={momoPaymentCode} canEdit={data.isSuperAdmin} onChange={setMomoPaymentCode} onSave={savePaymentCode} />}
       {section === "My settings" && <AdminProfileSettings profile={data.currentAdmin} onSave={saveOwnProfile} />}
       {section === "RBAC management" && <Rbac roles={roles} permissionGroups={data.permissionGroups} onSave={saveRole} onDelete={removeRole} />}
-      {section === "Admin users" && <AdminUsers users={adminUsers} roles={roles} sessions={sessions} onCreate={createAdminUser} onUpdate={setAdminState} onEdit={editAdmin} onDelete={removeAdmin} onRevoke={revoke} />}
+      {section === "Admin users" && <AdminUsers users={adminUsers} roles={roles} sessions={sessions} isSuperAdmin={data.isSuperAdmin} onCreate={createAdminUser} onUpdate={setAdminState} onEdit={editAdmin} onDelete={removeAdmin} onRevoke={revoke} />}
       {section === "Audit trail" && <AuditTrail events={data.auditEvents} />}
     </div></main>{selectedPartner && <PartnerReview partner={selectedPartner} message={selectedPartnerMessage} onMessage={setSelectedPartnerMessage} onClose={() => { setSelectedPartner(null); setSelectedPartnerMessage(""); }} onReview={reviewPartner} />}</div>;
 }
 
-function AdminUsers({ users, roles, sessions, onCreate, onUpdate, onEdit, onDelete, onRevoke }: {
+function AdminUsers({ users, roles, sessions, isSuperAdmin, onCreate, onUpdate, onEdit, onDelete, onRevoke }: {
   users: AdminUser[];
   roles: AdminRole[];
   sessions: AdminSession[];
+  isSuperAdmin: boolean;
   onCreate: (event: React.FormEvent<HTMLFormElement>) => void;
   onUpdate: (id: string, updates: { isActive?: boolean; roleId?: string }) => void;
   onEdit: (input: { id: string; username: string; fullName: string; password?: string }) => Promise<boolean>;
@@ -240,22 +243,23 @@ function AdminUsers({ users, roles, sessions, onCreate, onUpdate, onEdit, onDele
   return <>
     <PageHeading eyebrow="Security / identity" title={<>Admin accounts & <em>access.</em></>} copy="Create, activate, assign roles, and manage administrator sessions." />
     <div className="admin-overview-grid lower">
-      <section className="admin-card"><CardHeading eyebrow="Create account" title="New admin" />
+      {isSuperAdmin && <section className="admin-card"><CardHeading eyebrow="Create account" title="New admin" />
         <form className="admin-users-form" onSubmit={onCreate}>
           <label>Username<input name="username" required minLength={3} maxLength={100} placeholder="admin-name" /></label>
-          <label>Full name<input name="fullName" required maxLength={150} placeholder="Amina Nkurunziza" /></label>
-          <label>Password<input name="password" type="password" required minLength={8} autoComplete="new-password" placeholder="At least 8 characters" /></label>
+          <label>Full name<input name="fullName" required maxLength={150} placeholder="Admin full name" /></label>
+          <label>Password<PasswordInput name="password" required minLength={12} maxLength={72} autoComplete="new-password" placeholder="At least 12 characters" /></label>
+          <label>Confirm password<PasswordInput name="confirmPassword" required minLength={12} maxLength={72} autoComplete="new-password" placeholder="Re-enter password" /></label>
           <label>Admin role<select name="roleId" required defaultValue=""><option value="" disabled>Select a role</option>{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></label>
           <button className="admin-primary-button" type="submit">Create admin <span>→</span></button>
         </form>
-      </section>
+      </section>}
       <section className="admin-card"><CardHeading eyebrow="Access" title="Assigned roles" /><div className="admin-user-policy"><ul>{roles.map((role) => <li key={role.id}><b>{role.name}</b>: {role.description || role.permissions.join(", ")}</li>)}</ul></div></section>
     </div>
     <section className="admin-card full-card admin-users-list">
       <div className="table-toolbar"><div className="admin-search">Search <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search admin accounts" aria-label="Search admin accounts" /></div><span className="admin-filter">{filteredUsers.length} admins</span></div>
       <div className="admin-table"><div className="table-head"><span>Admin</span><span>Role</span><span>Status</span><span>Created</span><span>Actions</span></div>
         {filteredUsers.map((user) => <Fragment key={user.id}><div className="table-row">
-          <span>{editingId === user.id ? <form id={`edit-admin-${user.id}`} className="admin-inline-edit" onSubmit={(event) => saveAdmin(event, user)}><input name="fullName" defaultValue={user.fullName} aria-label="Admin full name" required /><input name="username" defaultValue={user.username} aria-label="Admin username" minLength={3} required /><input name="password" type="password" minLength={8} autoComplete="new-password" placeholder="New password (optional)" aria-label="New password (optional)" /></form> : <><b>{user.fullName}</b><small>@{user.username}</small></>}</span>
+          <span>{editingId === user.id ? <form id={`edit-admin-${user.id}`} className="admin-inline-edit" onSubmit={(event) => saveAdmin(event, user)}><input name="fullName" defaultValue={user.fullName} aria-label="Admin full name" required /><input name="username" defaultValue={user.username} aria-label="Admin username" minLength={3} required /><PasswordInput name="password" minLength={12} maxLength={72} autoComplete="new-password" placeholder="New password (optional)" aria-label="New password (optional)" /></form> : <><b>{user.fullName}</b><small>@{user.username}</small></>}</span>
           <span><select aria-label={`Role for ${user.username}`} value={user.roleId} onChange={(event) => onUpdate(user.id, { roleId: event.target.value })}>{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></span>
           <span><em className={`admin-pill ${user.isActive ? "active" : "inactive"}`}>{user.isActive ? "Active" : "Inactive"}</em></span>
           <span>{new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
@@ -648,7 +652,7 @@ function AdminProfileSettings({ profile, onSave }: { profile: DashboardData["cur
       </div>
       <label className="admin-role-field">Full name<input autoComplete="name" maxLength={150} required value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
       <label className="admin-role-field">Username<input autoComplete="username" minLength={3} maxLength={100} required value={username} onChange={(event) => setUsername(event.target.value)} /></label>
-      <fieldset className="admin-profile-password"><legend>Change password</legend><label className="admin-role-field">Current password<input autoComplete="current-password" type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label className="admin-role-field">New password<input autoComplete="new-password" minLength={12} type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Leave empty to keep the current password" /></label></fieldset>
+      <fieldset className="admin-profile-password"><legend>Change password</legend><label className="admin-role-field">Current password<PasswordInput autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} /></label><label className="admin-role-field">New password<PasswordInput autoComplete="new-password" minLength={12} maxLength={72} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Leave empty to keep the current password" /></label></fieldset>
       {error && <p className="form-error" role="alert">{error}</p>}
       <button className="admin-primary-button" type="submit" disabled={saving || uploading}>{saving ? "Saving..." : "Save settings"}<span>→</span></button>
     </form>

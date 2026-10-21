@@ -57,7 +57,6 @@ export type ProviderSessionInput = {
   permissions?: string[];
   emailVerified?: boolean;
   contributorApproved?: boolean;
-  mfaVerified?: boolean;
 };
 
 export async function issueProviderSession(input: ProviderSessionInput) {

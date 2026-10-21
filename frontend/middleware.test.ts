@@ -12,7 +12,6 @@ const claims = (overrides: Partial<AuthTokenClaims> = {}): AuthTokenClaims => ({
   permissions: [],
   contributorApproved: false,
   emailVerified: true,
-  mfaVerified: false,
   iat: 1,
   exp: 2,
   ...overrides
@@ -60,7 +59,7 @@ describe("authorizePortal", () => {
         "/partner/submissions",
         claims({
           portal: "contributor",
-          authMethod: "phone-otp",
+          authMethod: "guest",
           contributorApproved: true,
           emailVerified: true
         }),
@@ -68,24 +67,18 @@ describe("authorizePortal", () => {
     ).toEqual({ allowed: false, reason: "invalid-auth-method" });
   });
 
-  it("accepts only PIN or SMS OTP sessions for drivers", () => {
+  it("accepts only PIN sessions for drivers", () => {
     expect(
       authorizePortal("/driver/routes", claims({ portal: "driver", authMethod: "password" })),
     ).toEqual({ allowed: false, reason: "wrong-portal" });
     expect(
-      authorizePortal("/driver/routes", claims({ portal: "driver", authMethod: "sms-otp" })),
+      authorizePortal("/driver/routes", claims({ portal: "driver", authMethod: "driver-pin" })),
     ).toMatchObject({ allowed: true });
   });
 
   it("allows password admin sign-in without requiring TOTP", () => {
     expect(
-      authorizePortal("/admin/dashboard", claims({ portal: "admin", authMethod: "password", mfaVerified: false })),
-    ).toMatchObject({ allowed: true });
-    expect(
-      authorizePortal(
-        "/admin/dashboard",
-        claims({ portal: "admin", authMethod: "password-totp", mfaVerified: true }),
-      ),
+      authorizePortal("/admin/dashboard", claims({ portal: "admin", authMethod: "password" })),
     ).toMatchObject({ allowed: true });
   });
 });

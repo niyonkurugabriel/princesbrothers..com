@@ -6,10 +6,11 @@ import { logAuditEvent } from "@/shared/server/audit";
 import type { RowDataPacket } from "mysql2/promise";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as { phone?: unknown; pin?: unknown; location?: unknown } | null;
-  if (!body || typeof body.phone !== "string" || typeof body.pin !== "string" || typeof body.location !== "string") return NextResponse.json({ error: "Phone number, five-digit PIN, and service location are required." }, { status: 400 });
+  const body = await request.json().catch(() => null) as { phone?: unknown; pin?: unknown; confirmPin?: unknown; location?: unknown } | null;
+  if (!body || typeof body.phone !== "string" || typeof body.pin !== "string" || typeof body.confirmPin !== "string" || typeof body.location !== "string") return NextResponse.json({ error: "Phone number, matching five-digit PINs, and service location are required." }, { status: 400 });
   const phone = body.phone.trim();
   const location = body.location.trim();
+  if (body.pin !== body.confirmPin) return NextResponse.json({ error: "The PINs do not match." }, { status: 400 });
   if (!/^\+[1-9]\d{7,14}$/.test(phone) || !/^\d{5}$/.test(body.pin) || !location || location.length > 160) return NextResponse.json({ error: "Enter a valid international phone number, five-digit PIN, and service location (up to 160 characters)." }, { status: 400 });
   const existing = await query<RowDataPacket & { id: string }>("SELECT id FROM `User` WHERE phone = ? LIMIT 1", [phone]);
   if (existing.length) return NextResponse.json({ error: "That phone number already has an account. Sign in or recover its PIN." }, { status: 409 });

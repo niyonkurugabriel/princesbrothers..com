@@ -23,15 +23,17 @@ export async function submitContributorApplication(
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
   const location = String(formData.get("location") ?? "").trim();
   const businessDetails = String(formData.get("businessDetails") ?? "").trim();
 
-  if (!companyName || !registrationNumber || !email || !phone || !password || !location || !businessDetails) {
+  if (!companyName || !registrationNumber || !email || !phone || !password || !confirmPassword || !location || !businessDetails) {
     return { error: "Please complete every field before submitting your application." };
   }
+  if (password !== confirmPassword) return { error: "The passwords do not match." };
   if (!/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid business email address." };
   if (!/^\+[1-9]\d{7,14}$/.test(phone)) return { error: "Use an international phone number, for example +250..." };
-  if (password.length < 8) return { error: "Choose a password with at least 8 characters." };
+  if (password.length < 8 || password.length > 72) return { error: "Choose a password between 8 and 72 characters." };
 
   try {
     await withTransaction(async (transaction) => {

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { updateAccountDetails } from "@/app/(storefront)/account/actions";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 type AccountFormValues = { email: string; firstName: string; lastName: string; phone: string | null; profileImageUrl: string | null; line1?: string; city?: string; state?: string | null; postalCode?: string; countryCode?: string };
 
@@ -28,7 +29,7 @@ export function AccountForm({ initialValues }: { initialValues: AccountFormValue
     </div>
     <label>Email<input name="email" required type="email" defaultValue={initialValues.email} placeholder="you@example.com" /></label>
     <label>Phone<input name="phone" type="tel" defaultValue={initialValues.phone ?? ""} placeholder="+250 788 000 000" /></label>
-    <label>New password<input name="password" minLength={8} type="password" placeholder="Leave blank to keep current password" /></label>
+    <label>New password<PasswordInput name="password" minLength={8} placeholder="Leave blank to keep current password" /></label>
     <p className="account-form-heading">Saved delivery information</p>
     <label>Address<input name="line1" defaultValue={initialValues.line1 ?? ""} placeholder="Street and number" /></label>
     <div className="account-input-grid">

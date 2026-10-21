@@ -1,6 +1,6 @@
 import { jwtVerify, SignJWT } from "jose";
 import { AUTH_JWT_AUDIENCE, AUTH_JWT_ISSUER } from "@/features/auth/config";
-import type { AuthTokenClaims, CreateSessionInput } from "@/features/auth/types";
+import { authMethods, authPortals, type AuthTokenClaims, type CreateSessionInput } from "@/features/auth/types";
 
 const getJwtSecret = (): Uint8Array => {
   const secret = process.env.AUTH_JWT_SECRET;
@@ -24,8 +24,7 @@ export const signAccessToken = async (
     roles: input.roles,
     permissions: input.permissions,
     contributorApproved: input.contributorApproved ?? false,
-    emailVerified: input.emailVerified ?? false,
-    mfaVerified: input.mfaVerified ?? false
+    emailVerified: input.emailVerified ?? false
   };
 
   return new SignJWT(claims)
@@ -49,7 +48,9 @@ export const verifyAccessToken = async (token: string): Promise<AuthTokenClaims>
     typeof payload.sub !== "string" ||
     typeof payload.sid !== "string" ||
     typeof payload.portal !== "string" ||
+    !authPortals.includes(payload.portal as AuthTokenClaims["portal"]) ||
     typeof payload.authMethod !== "string" ||
+    !authMethods.includes(payload.authMethod as AuthTokenClaims["authMethod"]) ||
     !Array.isArray(payload.roles) ||
     !Array.isArray(payload.permissions)
   ) {
@@ -67,7 +68,6 @@ export const verifyAccessToken = async (token: string): Promise<AuthTokenClaims>
     ),
     contributorApproved: payload.contributorApproved === true,
     emailVerified: payload.emailVerified === true,
-    mfaVerified: payload.mfaVerified === true,
     iat: typeof payload.iat === "number" ? payload.iat : 0,
     exp: typeof payload.exp === "number" ? payload.exp : 0
   };

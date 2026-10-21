@@ -50,17 +50,18 @@ async function main() {
       }
     }
 
-    const adminUsername = process.env.ADMIN_USERNAME?.trim();
+    const configuredAdminUsername = process.env.ADMIN_USERNAME?.trim();
     const adminPassword = process.env.ADMIN_PASSWORD;
-    if (Boolean(adminUsername) !== Boolean(adminPassword)) {
-      throw new Error("Set both ADMIN_USERNAME and ADMIN_PASSWORD to bootstrap an admin account.");
+    if (configuredAdminUsername && !adminPassword) {
+      throw new Error("Set ADMIN_PASSWORD to bootstrap an admin account; ADMIN_USERNAME is optional.");
     }
-    if (adminUsername && adminPassword) {
+    if (adminPassword) {
+      const adminUsername = configuredAdminUsername || "admin-nkuru";
       if (adminUsername.length < 3 || adminUsername.length > 100 || adminPassword.length < 12) {
         throw new Error("Admin bootstrap requires a username of 3-100 characters and a password of at least 12 characters.");
       }
 
-      const [existingAdmins] = await connection.execute("SELECT id FROM AdminUser WHERE username = ? LIMIT 1", [adminUsername]);
+      const [existingAdmins] = await connection.execute("SELECT id FROM AdminUser LIMIT 1");
       if (!existingAdmins.length) {
         const [roles] = await connection.execute("SELECT id FROM AdminRole WHERE name = 'Super admin' LIMIT 1");
         if (!roles[0]) throw new Error("Apply database migrations before bootstrapping the admin account.");
@@ -68,7 +69,7 @@ async function main() {
         const passwordHash = await bcrypt.hash(adminPassword, 12);
         await connection.execute(
           "INSERT INTO AdminUser (id, username, passwordHash, fullName, isSuperAdmin, isActive, roleId, createdAt, updatedAt) VALUES (?, ?, ?, ?, 1, 1, ?, ?, ?)",
-          [randomUUID(), adminUsername, passwordHash, "System Admin", roles[0].id, now, now]
+          [randomUUID(), adminUsername, passwordHash, "admin-nkuru", roles[0].id, now, now]
         );
       }
     }

@@ -37,7 +37,7 @@ Feature code lives under `frontend/features/<name>/`: `components/` contains UI 
 2. Install dependencies: `npm install`.
 3. Copy `.env.example` to `.env` and set `DATABASE_URL` to your MySQL username and password. The template uses `mysql://root:password@127.0.0.1:3306/princesbrothers`.
 4. Apply the SQL migrations: `npm run db:migrate`.
-5. Add the starter organic produce catalog: `npm run db:seed`.
+5. Add the starter organic produce catalog: `npm run db:seed`. To bootstrap the first Super admin, set a unique `ADMIN_PASSWORD` of at least 12 characters in `.env` before seeding; `ADMIN_USERNAME` defaults to `admin-nkuru`. Later admin accounts must be created by a Super admin in the dashboard.
 6. Start the web app: `npm run dev`. The preflight checks the MySQL host and port configured in `DATABASE_URL`.
 
 The app runs on `http://localhost:3000`. To use Google sign-in locally, add `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI on the Google OAuth client configured by `GOOGLE_CLIENT_ID`, and set `GOOGLE_REDIRECT_URI` to that exact value. See [DEPLOYMENT.md](DEPLOYMENT.md) for production callback setup.
@@ -46,7 +46,7 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for production environment variables and rele
 
 Authentication requires an `AUTH_JWT_SECRET` with at least 32 characters. Sessions, revocation state, OTPs, and OAuth state are stored in MySQL. Google OAuth and Africa's Talking SMS require valid provider credentials in `.env`. Tokens are issued as `httpOnly`, `Secure`, `SameSite=Strict` cookies. The middleware performs edge-safe JWT and portal checks; server handlers verify active sessions against MySQL.
 
-The portal policies are encoded in `frontend/features/auth`: storefront sessions support password, Google OAuth, and guest checkout; contributors require email verification and approval; drivers use PIN sessions; admins require password plus TOTP.
+The portal policies are encoded in `frontend/features/auth`: storefront sessions support password, Google OAuth, and guest checkout; contributors require email verification and approval; drivers use PIN sessions; admins sign in with a password, and only a Super admin can create additional admin accounts.
 
 The driver portal is available at `/driver`, with phone/PIN login at `/driver/login`. Its dashboard shows each driver's assigned deliveries and supports delivery status updates, route navigation, proof capture, and editing the driver's own vehicle details, service locations, and payout accounts. Server actions scope changes to the active driver's database record. Driver PIN hashes are stored on the `Driver` record; provision them through a trusted admin or seed flow before enabling production sign-in.
 

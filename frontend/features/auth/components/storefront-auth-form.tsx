@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 type AuthMode = "password" | "signup" | "reset";
 
@@ -26,6 +27,7 @@ export function StorefrontAuthForm({ returnTo, initialMode = "password" }: { ret
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -61,10 +63,14 @@ export function StorefrontAuthForm({ returnTo, initialMode = "password" }: { ret
 
   async function createAccount(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (password !== confirmPassword) {
+      setError("The passwords do not match.");
+      return;
+    }
     setPending(true);
     setError("");
     try {
-      await postJson("/api/auth/password/signup", { email, firstName, lastName, phone, password });
+      await postJson("/api/auth/password/signup", { email, firstName, lastName, phone, password, confirmPassword });
       router.replace(returnTo);
       router.refresh();
     } catch (signupError) {
@@ -97,7 +103,7 @@ export function StorefrontAuthForm({ returnTo, initialMode = "password" }: { ret
 
     {mode === "password" && <form className="auth-form" onSubmit={signInWithPassword}>
       <label>Email<input autoComplete="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      <label>Password<input autoComplete="current-password" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>Password<PasswordInput autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       <button className="button button-navy btn-3d btn-3d-green" disabled={pending} type="submit">{pending ? "Signing in…" : "Sign in"}</button>
       <button className="auth-text-button" type="button" onClick={() => chooseMode("reset")}>Forgot password?</button>
     </form>}
@@ -109,7 +115,8 @@ export function StorefrontAuthForm({ returnTo, initialMode = "password" }: { ret
         <label className="auth-wide">Email<input autoComplete="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
       </div>
       <label>Phone number<input autoComplete="tel" type="tel" required placeholder="+2507…" value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
-      <label>Password<input autoComplete="new-password" minLength={8} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>Password<PasswordInput autoComplete="new-password" minLength={8} maxLength={72} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>Confirm password<PasswordInput autoComplete="new-password" minLength={8} maxLength={72} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
       <button className="button button-navy btn-3d btn-3d-green" disabled={pending} type="submit">{pending ? "Creating account…" : "Create account"}</button>
     </form>}
 

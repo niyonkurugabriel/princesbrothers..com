@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { submitContributorApplication } from "@/app/(contributor)/actions";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 export function ContributorApplicationForm() {
   const [state, setState] = useState<{ error?: string; success?: boolean; companyName?: string }>({});
@@ -24,7 +25,8 @@ export function ContributorApplicationForm() {
     <label>Registration number<input name="registrationNumber" required placeholder="Farm or business registration" /></label>
     <label>Business email<input name="email" required type="email" placeholder="hello@yourfarm.com" /></label>
     <label>Phone number<input name="phone" required type="tel" placeholder="+2507…" /></label>
-    <label>Account password<input name="password" required type="password" minLength={8} autoComplete="new-password" /></label>
+    <label>Account password<PasswordInput name="password" required minLength={8} maxLength={72} autoComplete="new-password" /></label>
+    <label>Confirm account password<PasswordInput name="confirmPassword" required minLength={8} maxLength={72} autoComplete="new-password" /></label>
     <label>Growing location<input name="location" required placeholder="District, region, country" /></label>
     <label>What you grow<textarea name="businessDetails" required rows={5} placeholder="Crops, growing practices, seasonality, and anything shoppers should know." /></label>
     {state.error && <p className="form-error" role="alert">{state.error}</p>}

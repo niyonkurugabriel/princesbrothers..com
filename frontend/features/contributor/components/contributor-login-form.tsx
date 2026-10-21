@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 async function postJson(url: string, body: Record<string, string>) {
   const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -79,7 +80,7 @@ export function ContributorLoginForm() {
     <h2>{reset ? "Recover your password" : "Already a contributor?"}</h2>
     {!reset ? <form className="auth-form" onSubmit={signIn}>
       <label>Business email<input autoComplete="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-      <label>Password<input autoComplete="current-password" required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>Password<PasswordInput autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
       <button className="button button-navy" disabled={pending} type="submit">{pending ? "Signing in..." : "Sign in"}</button>
       <button className="auth-text-button" type="button" onClick={() => { setReset(true); setError(""); setMessage(""); }}>Forgot password?</button>
     </form> : <div className="auth-form">
@@ -95,7 +96,7 @@ export function ContributorLoginForm() {
         <label>Phone number<input autoComplete="tel" required type="tel" placeholder="+2507..." value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
         {!codeSent ? <button className="button button-navy" disabled={pending || !phone.trim()} type="button" onClick={recoverPassword}>{pending ? "Sending code..." : "Send recovery code"}</button> : <>
           <label>6-digit code<input autoComplete="one-time-code" inputMode="numeric" maxLength={6} value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))} /></label>
-          <label>New password<input autoComplete="new-password" minLength={8} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+          <label>New password<PasswordInput autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           <button className="button button-navy" disabled={pending || code.length !== 6} type="button" onClick={resetPassword}>{pending ? "Updating..." : "Verify and reset password"}</button>
         </>}
       </>}

@@ -7,8 +7,8 @@ import { issueProviderSession } from "@/features/auth/providers";
 import type { RowDataPacket } from "mysql2/promise";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as { email?: unknown; firstName?: unknown; lastName?: unknown; phone?: unknown; password?: unknown } | null;
-  if (!body || typeof body.email !== "string" || typeof body.firstName !== "string" || typeof body.lastName !== "string" || typeof body.phone !== "string" || typeof body.password !== "string") {
+  const body = await request.json().catch(() => null) as { email?: unknown; firstName?: unknown; lastName?: unknown; phone?: unknown; password?: unknown; confirmPassword?: unknown } | null;
+  if (!body || typeof body.email !== "string" || typeof body.firstName !== "string" || typeof body.lastName !== "string" || typeof body.phone !== "string" || typeof body.password !== "string" || typeof body.confirmPassword !== "string") {
     return NextResponse.json({ error: "Complete every required account field." }, { status: 400 });
   }
 
@@ -17,7 +17,8 @@ export async function POST(request: Request) {
   const lastName = body.lastName.trim();
   const phone = body.phone.trim();
   const password = body.password;
-  if (!/^\S+@\S+\.\S+$/.test(email) || !firstName || firstName.length > 100 || !lastName || lastName.length > 100 || !/^\+[1-9]\d{7,14}$/.test(phone) || password.length < 8) {
+  if (password !== body.confirmPassword) return NextResponse.json({ error: "The passwords do not match." }, { status: 400 });
+  if (!/^\S+@\S+\.\S+$/.test(email) || !firstName || firstName.length > 100 || !lastName || lastName.length > 100 || !/^\+[1-9]\d{7,14}$/.test(phone) || password.length < 8 || password.length > 72) {
     return NextResponse.json({ error: "Enter a valid email, name, international phone number, and password with at least 8 characters." }, { status: 400 });
   }
 

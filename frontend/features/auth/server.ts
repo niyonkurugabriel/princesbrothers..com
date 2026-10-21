@@ -38,7 +38,6 @@ export const refreshSessionToken = async (
       permissions: claims.permissions,
       contributorApproved: claims.contributorApproved,
       emailVerified: claims.emailVerified,
-      mfaVerified: claims.mfaVerified,
       portal: claims.portal,
       authMethod: claims.authMethod,
       sessionId: claims.sid

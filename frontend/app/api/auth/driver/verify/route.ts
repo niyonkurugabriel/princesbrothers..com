@@ -6,8 +6,9 @@ import { logAuditEvent } from "@/shared/server/audit";
 import type { RowDataPacket } from "mysql2/promise";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null) as { phone?: unknown; code?: unknown; purpose?: unknown; pin?: unknown } | null;
-  if (!body || typeof body.phone !== "string" || typeof body.code !== "string" || typeof body.pin !== "string" || body.purpose !== "password-reset") return NextResponse.json({ error: "Phone, recovery code, and new five-digit PIN are required." }, { status: 400 });
+  const body = await request.json().catch(() => null) as { phone?: unknown; code?: unknown; purpose?: unknown; pin?: unknown; confirmPin?: unknown } | null;
+  if (!body || typeof body.phone !== "string" || typeof body.code !== "string" || typeof body.pin !== "string" || typeof body.confirmPin !== "string" || body.purpose !== "password-reset") return NextResponse.json({ error: "Phone, recovery code, and matching new five-digit PINs are required." }, { status: 400 });
+  if (body.pin !== body.confirmPin) return NextResponse.json({ error: "The PINs do not match." }, { status: 400 });
   if (!/^\+[1-9]\d{7,14}$/.test(body.phone.trim()) || !/^\d{5}$/.test(body.pin)) return NextResponse.json({ error: "Enter a valid phone number and a five-digit PIN." }, { status: 400 });
   const phone = body.phone.trim();
   if (!await verifyPhoneOtp(phone, body.code, "driver-password-reset")) return NextResponse.json({ error: "That SMS code is incorrect or expired." }, { status: 401 });

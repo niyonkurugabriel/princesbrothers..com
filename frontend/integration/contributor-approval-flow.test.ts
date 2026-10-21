@@ -11,7 +11,6 @@ const claims = (overrides: Partial<AuthTokenClaims> = {}): AuthTokenClaims => ({
   permissions: ["orders:read", "submissions:write"],
   contributorApproved: true,
   emailVerified: false,
-  mfaVerified: false,
   iat: 1,
   exp: 2,
   ...overrides
@@ -31,7 +30,7 @@ describe("contributor approval flow", () => {
   it("requires the password-based contributor auth method", () => {
     const decision = authorizePortal(
       "/partner/submissions",
-      claims({ authMethod: "phone-otp", contributorApproved: true, emailVerified: false }),
+      claims({ authMethod: "guest", contributorApproved: true, emailVerified: false }),
     );
     expect(decision).toEqual({ allowed: false, reason: "invalid-auth-method" });
   });

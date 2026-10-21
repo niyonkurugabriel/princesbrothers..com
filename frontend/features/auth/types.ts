@@ -3,12 +3,9 @@ export type AuthPortal = (typeof authPortals)[number];
 
 export const authMethods = [
   "password",
-  "phone-otp",
   "google-oauth",
   "guest",
-  "driver-pin",
-  "sms-otp",
-  "password-totp"
+  "driver-pin"
 ] as const;
 export type AuthMethod = (typeof authMethods)[number];
 
@@ -18,7 +15,6 @@ export type SessionUser = {
   permissions: string[];
   contributorApproved?: boolean;
   emailVerified?: boolean;
-  mfaVerified?: boolean;
 };
 
 export type AuthTokenClaims = SessionUser & {

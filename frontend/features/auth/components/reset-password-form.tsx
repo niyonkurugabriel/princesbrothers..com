@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { PasswordInput } from "@/features/auth/components/password-input";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const [password, setPassword] = useState("");
@@ -44,8 +45,8 @@ export function ResetPasswordForm({ token }: { token: string }) {
     <h1>Choose a new password</h1>
     <p className="auth-intro">Enter a new password for your account.</p>
     {token ? complete ? <p className="auth-message" role="status">{message}</p> : <form className="auth-form" onSubmit={resetPassword}>
-      <label>New password<input autoComplete="new-password" minLength={8} maxLength={72} required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-      <label>Confirm new password<input autoComplete="new-password" minLength={8} maxLength={72} required type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
+      <label>New password<PasswordInput autoComplete="new-password" minLength={8} maxLength={72} required value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+      <label>Confirm new password<PasswordInput autoComplete="new-password" minLength={8} maxLength={72} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label>
       <button className="button button-navy btn-3d btn-3d-green" disabled={pending} type="submit">{pending ? "Updating password…" : "Reset password"}</button>
     </form> : <p className="auth-error" role="alert">This password reset link is invalid or expired. Request another link from the sign-in page.</p>}
     {error && <p className="auth-error" role="alert">{error}</p>}

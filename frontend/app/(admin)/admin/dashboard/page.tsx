@@ -37,7 +37,7 @@ export default async function AdminDashboardPage() {
       claims = null;
     }
   }
-  if (!claims || claims.portal !== "admin" || !["password", "password-totp"].includes(claims.authMethod)) {
+  if (!claims || claims.portal !== "admin" || claims.authMethod !== "password") {
     redirect("/login/admin?returnTo=/admin/dashboard");
   }
 

@@ -7,7 +7,7 @@ export type GuardDecision =
   | { allowed: true; user: AuthTokenClaims | null }
   | {
       allowed: false;
-      reason: "unauthenticated" | "wrong-portal" | "not-approved" | "mfa-required" | "invalid-auth-method";
+      reason: "unauthenticated" | "wrong-portal" | "not-approved" | "invalid-auth-method";
     };
 
 const isPortalUser = (claims: AuthTokenClaims, portal: AuthPortal): boolean =>
@@ -35,11 +35,11 @@ export const authorizePortal = (
     return { allowed: false, reason: "not-approved" };
   }
 
-  if (portal === "admin" && !["password", "password-totp"].includes(claims.authMethod)) {
-    return { allowed: false, reason: "mfa-required" };
+  if (portal === "admin" && claims.authMethod !== "password") {
+    return { allowed: false, reason: "invalid-auth-method" };
   }
 
-  if (portal === "driver" && !["driver-pin", "sms-otp"].includes(claims.authMethod)) {
+  if (portal === "driver" && claims.authMethod !== "driver-pin") {
     return { allowed: false, reason: "wrong-portal" };
   }
 

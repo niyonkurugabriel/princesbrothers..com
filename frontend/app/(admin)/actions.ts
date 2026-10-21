@@ -16,13 +16,14 @@ import type { RowDataPacket } from "mysql2/promise";
 
 type InventoryRow = RowDataPacket & { id: string; source: "INTERNAL" | "CONTRIBUTOR"; quantity: number; reserved: number };
 
-async function adminActorId(requiredPermission?: string): Promise<string | undefined> {
+async function adminActorId(requiredPermission?: string, requiredRole?: string): Promise<string | undefined> {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   if (!token) return undefined;
   try {
     const claims = await verifyActiveSession(token);
-    if (!claims || claims.portal !== "admin" || !["password", "password-totp"].includes(claims.authMethod)) return undefined;
+    if (!claims || claims.portal !== "admin" || claims.authMethod !== "password") return undefined;
     if (requiredPermission && !claims.permissions.includes(requiredPermission)) return undefined;
+    if (requiredRole && !claims.roles.includes(requiredRole)) return undefined;
     return claims.sub;
   } catch {
     return undefined;
@@ -37,7 +38,7 @@ async function accountantActorId(requiredPermission: string): Promise<string | u
     if (
       !claims ||
       claims.portal !== "admin" ||
-      !["password", "password-totp"].includes(claims.authMethod) ||
+      claims.authMethod !== "password" ||
       !claims.roles.includes("Accountant") ||
       !claims.permissions.includes("finance:read") ||
       !claims.permissions.includes(requiredPermission)
@@ -102,17 +103,18 @@ export async function revokeAdminSession(sessionId: string) {
   return { ok: true };
 }
 
-export async function createAdminAccount(input: { username: string; fullName: string; password: string; roleId: string }) {
-  const actorId = await adminActorId("users:manage");
-  if (!actorId) return { ok: false, error: "Admin session with users:manage permission required." };
+export async function createAdminAccount(input: { username: string; fullName: string; password: string; confirmPassword: string; roleId: string }) {
+  const actorId = await adminActorId("users:manage", "Super admin");
+  if (!actorId) return { ok: false, error: "A Super admin session with users:manage permission is required to create admin accounts." };
 
   const username = input.username.trim();
   const fullName = input.fullName.trim();
-  const password = input.password.trim();
+  const password = input.password;
 
   if (!username || username.length < 3 || username.length > 100) return { ok: false, error: "Choose a username between 3 and 100 characters." };
   if (!fullName || fullName.length > 150) return { ok: false, error: "Enter a full name for the admin account." };
-  if (!password || password.length < 8) return { ok: false, error: "Admin password must be at least 8 characters long." };
+  if (password !== input.confirmPassword) return { ok: false, error: "The passwords do not match." };
+  if (!password || password.length < 12 || password.length > 72) return { ok: false, error: "Admin password must be between 12 and 72 characters." };
   if (!input.roleId) return { ok: false, error: "Choose an admin role." };
 
   const existingRows = await query<RowDataPacket & { id: string }>("SELECT id FROM AdminUser WHERE username = ? LIMIT 1", [username]);
@@ -191,7 +193,7 @@ export async function updateAdminAccount(input: { id: string; username: string; 
   const fullName = input.fullName.trim();
   const password = input.password?.trim() ?? "";
   if (!input.id || username.length < 3 || username.length > 100 || !fullName || fullName.length > 150) return { ok: false, error: "Enter a username between 3 and 100 characters and a full name." };
-  if (password && password.length < 8) return { ok: false, error: "New admin password must be at least 8 characters." };
+  if (password && (password.length < 12 || password.length > 72)) return { ok: false, error: "New admin password must be between 12 and 72 characters." };
   const conflict = await query<RowDataPacket & { id: string }>("SELECT id FROM AdminUser WHERE username = ? AND id <> ? LIMIT 1", [username, input.id]);
   if (conflict.length) return { ok: false, error: "That username is already in use." };
   try {
