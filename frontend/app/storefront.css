@@ -551,3 +551,5 @@ button,.button,.admin-primary-button { border-radius:16px; }
 	.partner-header-links { gap:10px; }
 	.partner-form-panel .auth-panel,.partner-form-panel .application-form { padding:17px; }
 }
+
+.manual-payment-alert { background:#FDE8E7; border:2px solid #B83333; border-left-width:6px; color:#8A1C1C; font-size:13px; font-weight:700; margin:12px 0 0; padding:13px 16px; }

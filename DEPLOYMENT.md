@@ -13,7 +13,7 @@ Set the following variables in your deployment environment, secret manager, or V
 - `STRIPE_SECRET_KEY`: Secret key for Stripe payment flows.
 - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret for Stripe events.
 - `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`: PayPal credentials for international payment routing.
-- `PAYSTACK_SECRET_KEY`: Paystack secret key for centralized mobile-money and manual payment records. Configure the webhook at `/api/payments/paystack/webhook`.
+- `PAYSTACK_SECRET_KEY`: Server-only Paystack secret key for MTN Mobile Money, Airtel Money, and hosted bank-card checkout. Configure the Paystack webhook at `/api/payment/webhook`.
 - `SMS_PROVIDER=twilio`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`: SMS verification and driver PIN recovery. Africa's Talking remains an optional alternative.
 - `COMPANY_WHATSAPP_NUMBER`: International digits-only number used for manual-payment negotiation links.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`: Google OAuth login.
@@ -32,7 +32,7 @@ Set the following variables in your deployment environment, secret manager, or V
 
 1. Set `DATABASE_URL` to the production database and run `npm run db:migrate`. Fresh databases use the single schema file `db/database_pb.sql`; existing MySQL schemas receive additive updates from the runner.
 2. Generate a strong `AUTH_JWT_SECRET` and rotate it during release windows.
-3. Configure the company Paystack account and its webhook endpoint at `/api/payments/paystack/webhook`.
+3. Configure the company Paystack account and its webhook endpoint at `/api/payment/webhook`.
 4. Confirm `APP_URL` matches the public domain used by login redirects and cookie policies.
 5. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
 6. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and the Paystack webhook before enabling production authentication and checkout.

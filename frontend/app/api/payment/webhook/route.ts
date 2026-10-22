@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { query } from "@princess-brothers/db";
+import { toPaystackMinorAmount } from "@/features/payments/payments";
 import { approvePayment } from "@/features/payments/server/invoices";
 import type { RowDataPacket } from "mysql2/promise";
 
@@ -46,7 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true, unresolvedReference: event.data.reference });
   }
 
-  const expectedAmount = Math.round(Number(payment.amount) * 100);
+  const expectedAmount = toPaystackMinorAmount(Number(payment.amount), payment.currency);
   if (expectedAmount !== Number(event.data.amount ?? 0) || String(payment.currency).toUpperCase() !== String(event.data.currency ?? "").toUpperCase()) {
     return NextResponse.json({ error: "Payment reference or amount does not match." }, { status: 400 });
   }

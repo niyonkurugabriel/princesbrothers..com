@@ -8,16 +8,20 @@ export async function GET(request: Request) {
     const state = url.searchParams.get("state");
     const code = url.searchParams.get("code");
     if (!state || !code) return NextResponse.json({ error: "Google authorization was cancelled." }, { status: 400 });
-    const storedReturnTo = await consumeGoogleState(state);
-    if (!storedReturnTo) return NextResponse.json({ error: "Google authorization state expired." }, { status: 400 });
-    const returnTo = storedReturnTo.startsWith("/") && !storedReturnTo.startsWith("//") && !storedReturnTo.startsWith("/login") ? storedReturnTo : "/account";
+    const validState = await consumeGoogleState(state);
+    if (!validState) return NextResponse.json({ error: "Google authorization state expired." }, { status: 400 });
     const profile = await exchangeGoogleCode(code);
     const userId = await findOrCreateGoogleUser(profile);
     const session = await issueProviderSession({ userId, portal: "storefront", authMethod: "google-oauth", emailVerified: profile.emailVerified });
-    const response = NextResponse.redirect(new URL(returnTo, request.url));
+    const homeUrl = new URL("/", process.env.APP_URL || request.url);
+    if (!["http:", "https:"].includes(homeUrl.protocol) || homeUrl.username || homeUrl.password) {
+      throw new Error("APP_URL must be an absolute HTTP(S) URL.");
+    }
+    const response = NextResponse.redirect(homeUrl);
     response.cookies.set(authCookie(session.token, 60 * 60 * 24 * 30));
     return response;
-  } catch {
+  } catch (error) {
+    console.error("Google sign-in callback failed.", error);
     return NextResponse.json({ error: "Google sign-in could not be completed." }, { status: 503 });
   }
 }

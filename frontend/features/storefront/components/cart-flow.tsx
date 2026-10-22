@@ -180,7 +180,7 @@ const gatewayLabels: Record<PaymentGateway, string> = {
   LOCAL_CARD: "Local card",
   MPESA: "M-Pesa",
   FLUTTERWAVE: "Flutterwave",
-  PAYSTACK: "Paystack",
+  PAYSTACK: "Bank card",
   STRIPE: "Card",
   PAYPAL: "PayPal",
   APPLE_PAY: "Apple Pay",
@@ -199,10 +199,10 @@ export function CheckoutView({
   const { items, subtotal, clearCart } = useCart();
   const router = useRouter();
   const [context, setContext] = useState(initialContext);
-  const [gateway, setGateway] = useState<PaymentGateway>(
-    initialContext.gateways[0],
+  const visibleGateways = initialContext.gateways.filter((method) =>
+    ["MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK", "MANUAL"].includes(method)
   );
-  const [mobileMoneyProvider, setMobileMoneyProvider] = useState<"MTN" | "Airtel">("MTN");
+  const [gateway, setGateway] = useState<PaymentGateway>(visibleGateways[0] ?? "MANUAL");
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCurrencyPending, startCurrencyTransition] = useTransition();
@@ -278,7 +278,7 @@ export function CheckoutView({
           phone: field("phone"),
         },
         phone: (gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") ? mobileMoneyPhone : undefined,
-        provider: (gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") ? mobileMoneyProvider : undefined,
+        provider: gateway === "MTN_MOMO" ? "MTN" : gateway === "AIRTEL_MONEY" ? "Airtel" : undefined,
       });
       if (!result.ok) throw new Error(result.error);
       setOrderNumber(result.orderNumber ?? "");
@@ -382,7 +382,7 @@ export function CheckoutView({
         <fieldset>
           <legend>Payment in {context.currency}</legend>
           <div className="payment-options">
-            {context.gateways.map((method) => (
+            {visibleGateways.map((method) => (
               <label
                 className={
                   gateway === method
@@ -408,25 +408,18 @@ export function CheckoutView({
               </label>
             ))}
           </div>
+          <p className="manual-payment-alert" role="note">
+            manual payment recommended before we configure other payment modes
+          </p>
           {(gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") && (
             <div className="input-grid mt-3">
               <label>
-                Mobile money provider
-                <select
-                  value={mobileMoneyProvider}
-                  onChange={(event) => setMobileMoneyProvider(event.target.value as "MTN" | "Airtel")}
-                >
-                  <option value="MTN">MTN Mobile Money</option>
-                  <option value="Airtel">Airtel Money</option>
-                </select>
-              </label>
-              <label>
-                Mobile money phone
+                {gateway === "MTN_MOMO" ? "MTN Mobile Money phone" : "Airtel Money phone"}
                 <input
                   type="tel"
                   value={mobileMoneyPhone}
                   onChange={(event) => setMobileMoneyPhone(event.target.value)}
-                  placeholder={gateway === "AIRTEL_MONEY" ? "+2507..." : "+2507..."}
+                  placeholder="+2507..."
                   pattern="\+[1-9][0-9]{7,14}"
                   required
                 />
@@ -435,7 +428,12 @@ export function CheckoutView({
           )}
           {(gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") && (
             <p className="secure-note" role="status">
-              After continuing, check your phone and approve the mobile money push prompt to complete payment.
+              Pay securely with Paystack. You&apos;ll be prompted to approve the payment on your phone.
+            </p>
+          )}
+          {gateway === "PAYSTACK" && (
+            <p className="secure-note" role="status">
+              Pay securely with a bank card through Paystack&apos;s hosted checkout.
             </p>
           )}
         </fieldset>
@@ -468,7 +466,7 @@ function CurrencySelector({
 }: {
   context: PaymentContext;
   pending: boolean;
-  onChange: (currency: PaymentContext["currency"]) => void;
+  onChange: (_currency: PaymentContext["currency"]) => void;
 }) {
   return (
     <label className="currency-selector">

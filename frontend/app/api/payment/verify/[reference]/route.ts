@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { query } from "@princess-brothers/db";
+import { toPaystackMinorAmount } from "@/features/payments/payments";
 import { approvePayment } from "@/features/payments/server/invoices";
 import type { RowDataPacket } from "mysql2/promise";
 
@@ -45,7 +46,7 @@ export async function GET(_request: Request, context: { params: Promise<{ refere
       return NextResponse.redirect(new URL("/orders?payment=pending", appUrl));
     }
 
-    const expectedAmount = Math.round(Number(payment.amount) * 100);
+    const expectedAmount = toPaystackMinorAmount(Number(payment.amount), payment.currency);
     if (expectedAmount !== Number(result.data.amount ?? 0) || String(payment.currency).toUpperCase() !== String(result.data.currency ?? "").toUpperCase()) {
       return NextResponse.redirect(new URL("/orders?payment=pending", appUrl));
     }

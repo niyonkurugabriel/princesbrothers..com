@@ -128,7 +128,7 @@ export function StorefrontAuthForm({ returnTo, initialMode = "password" }: { ret
 
     {error && <p className="auth-error" role="alert">{error}</p>}
     {message && <p className="auth-message" role="status">{message}</p>}
-    <a className="google-auth-button" href={`/api/auth/google/start?returnTo=${encodeURIComponent(returnTo)}`}><span aria-hidden="true">G</span> Continue with Google</a>
+    <a className="google-auth-button" href="/api/auth/google/start"><span aria-hidden="true">G</span> Continue with Google</a>
     <p className="auth-legal">By continuing, you agree to the store&apos;s terms and privacy policy.</p>
     <Link className="auth-back-link" href="/">Continue shopping</Link>
   </section>;

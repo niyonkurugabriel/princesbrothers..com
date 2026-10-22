@@ -435,6 +435,16 @@ CREATE TABLE `AuthRateLimit` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- CreateTable
+CREATE TABLE `PasswordResetMonthlyLimit` (
+    `emailHash` CHAR(64) NOT NULL,
+    `monthStart` DATE NOT NULL,
+    `requestCount` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+
+    INDEX `PasswordResetMonthlyLimit_monthStart_idx`(`monthStart`),
+    PRIMARY KEY (`emailHash`, `monthStart`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
 -- AddForeignKey
 ALTER TABLE `UserRole` ADD CONSTRAINT `UserRole_userId_fkey` FOREIGN KEY (`userId`) REFERENCES `User`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 

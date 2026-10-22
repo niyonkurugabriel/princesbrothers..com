@@ -1,12 +1,14 @@
 import { createHash } from "node:crypto";
-import { execute, query } from "@princess-brothers/db";
+import { execute, query, withTransaction } from "@princess-brothers/db";
 import type { RowDataPacket } from "mysql2/promise";
 
 const MAX_REQUESTS_PER_HOUR = 3;
+const MAX_PASSWORD_RESET_REQUESTS_PER_MONTH = 4;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 let lastRateLimitCleanup = 0;
 
 type RateLimitRow = RowDataPacket & { windowStartedAt: Date; requestCount: number };
+type MonthlyLimitRow = RowDataPacket & { requestCount: number };
 type RateLimitScope = { name: string; value: string };
 
 export function clientIp(request: Request): string {
@@ -16,6 +18,48 @@ export function clientIp(request: Request): string {
 
 export function hashPasswordResetToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+function normalizedEmailHash(email: string): string {
+  return createHash("sha256").update(email).digest("hex");
+}
+
+function currentUtcMonthStart(): string {
+  return `${new Date().toISOString().slice(0, 7)}-01`;
+}
+
+export async function isPasswordResetMonthlyLimitReached(email: string): Promise<boolean> {
+  const rows = await query<MonthlyLimitRow>(
+    "SELECT requestCount FROM PasswordResetMonthlyLimit WHERE emailHash = ? AND monthStart = ? LIMIT 1",
+    [normalizedEmailHash(email), currentUtcMonthStart()]
+  );
+  return (rows[0]?.requestCount ?? 0) >= MAX_PASSWORD_RESET_REQUESTS_PER_MONTH;
+}
+
+export async function reservePasswordResetMonthlyRequest(email: string): Promise<boolean> {
+  const emailHash = normalizedEmailHash(email);
+  const monthStart = currentUtcMonthStart();
+  return withTransaction(async (transaction) => {
+    await transaction.execute(
+      "INSERT IGNORE INTO PasswordResetMonthlyLimit (emailHash, monthStart, requestCount) VALUES (?, ?, 0)",
+      [emailHash, monthStart]
+    );
+    const [rows] = await transaction.execute(
+      "SELECT requestCount FROM PasswordResetMonthlyLimit WHERE emailHash = ? AND monthStart = ? FOR UPDATE",
+      [emailHash, monthStart]
+    );
+    const row = Array.isArray(rows) ? rows[0] as MonthlyLimitRow | undefined : undefined;
+    if (!row || row.requestCount >= MAX_PASSWORD_RESET_REQUESTS_PER_MONTH) return false;
+
+    await transaction.execute(
+      "UPDATE PasswordResetMonthlyLimit SET requestCount = requestCount + 1 WHERE emailHash = ? AND monthStart = ?",
+      [emailHash, monthStart]
+    );
+    await transaction.execute(
+      "DELETE FROM PasswordResetMonthlyLimit WHERE monthStart < DATE_SUB(UTC_DATE(), INTERVAL 1 MONTH)"
+    );
+    return true;
+  });
 }
 
 function rateLimitId(scope: RateLimitScope): string {

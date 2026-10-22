@@ -39,6 +39,9 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
   if (!claims || claims.portal !== "storefront" || claims.sub.startsWith("guest:")) return { ok: false, error: "Sign in to your buyer account before placing an order." };
   const buyerUserId = claims.sub;
   if (!input.items.length || input.items.length > 50 || input.items.some((item) => !item.productId || !Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > 100)) return { ok: false, error: "Your basket contains invalid items or quantities." };
+  if ((input.gateway === "MTN_MOMO" || input.gateway === "AIRTEL_MONEY") && (!input.phone || !/^\+[1-9]\d{7,14}$/.test(input.phone.trim()))) return { ok: false, error: "Enter a valid international phone number for your mobile money payment." };
+  if (input.gateway === "MTN_MOMO" && input.provider && !["MTN", "MTN_MOMO"].includes(input.provider.toUpperCase())) return { ok: false, error: "Select MTN Mobile Money for this payment." };
+  if (input.gateway === "AIRTEL_MONEY" && input.provider && !["AIRTEL", "AIRTEL_MONEY"].includes(input.provider.toUpperCase())) return { ok: false, error: "Select Airtel Money for this payment." };
   const { address } = input;
   if (!address.recipient.trim() || !address.line1.trim() || !address.city.trim() || !address.postalCode.trim() || !/^[A-Z]{2}$/.test(address.countryCode) || !/^\+[1-9]\d{7,14}$/.test(address.phone)) return { ok: false, error: "Complete the delivery address and enter an international phone number." };
 
@@ -47,6 +50,7 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
   if (selectedCurrency) requestHeaders.set("cookie", `${CURRENCY_COOKIE}=${selectedCurrency}`);
   const request = new Request("https://princesbrothers.com/checkout", { headers: requestHeaders });
   const context = resolvePaymentContext(request);
+  if (!["MANUAL", "MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK"].includes(input.gateway)) return { ok: false, error: "That payment method is not supported." };
   if (input.gateway !== "MANUAL" && !context.gateways.includes(input.gateway)) return { ok: false, error: "That payment method is not available in your region." };
 
   let attemptedOrderId: string | undefined;

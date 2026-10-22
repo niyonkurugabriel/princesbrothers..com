@@ -1,4 +1,4 @@
-﻿export type PaymentGateway =
+export type PaymentGateway =
   | "MTN_MOMO"
   | "AIRTEL_MONEY"
   | "LOCAL_CARD"
@@ -47,13 +47,26 @@ export async function initiatePayment(
   options?: { phone?: string; provider?: MobileMoneyProvider | string; callbackUrl?: string; metadata?: Record<string, unknown> }
 ): Promise<PaymentIntent> {
   if (gateway === "MANUAL") return { id: reference, gateway, amount, currency, status: "requires_action" };
+  if (!["MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK", "LOCAL_CARD"].includes(gateway)) {
+    throw new Error("That Paystack payment method is not supported.");
+  }
+  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Payment amount must be greater than zero.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid email address is required for payment.");
 
   const secret = process.env.PAYSTACK_SECRET_KEY;
   if (!secret) throw new Error("Paystack is not configured.");
 
-  const normalizedProvider = normalizeMobileMoneyProvider(options?.provider ?? (gateway === "AIRTEL_MONEY" ? "Airtel" : gateway === "MTN_MOMO" ? "MTN" : undefined));
-  const channels = gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY" ? ["mobile_money"] : ["card", "mobile_money"];
+  const isMobileMoney = gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY";
+  const expectedProvider: MobileMoneyProvider = gateway === "AIRTEL_MONEY" ? "Airtel" : "MTN";
+  if (isMobileMoney && options?.provider && normalizeMobileMoneyProvider(options.provider) !== expectedProvider) {
+    throw new Error("The selected mobile money provider does not match the payment method.");
+  }
+  const normalizedProvider = expectedProvider;
   const phone = options?.phone?.replace(/\s+/g, "") ?? "";
+  if (isMobileMoney && !/^\+[1-9]\d{7,14}$/.test(phone)) {
+    throw new Error("Enter a valid international phone number for your mobile money payment.");
+  }
+  const channels = isMobileMoney ? ["mobile_money"] : ["card"];
   const callbackUrl = options?.callbackUrl ?? `${process.env.APP_URL ?? "https://www.princesbrothers.com"}/api/payment/verify/${encodeURIComponent(reference)}`;
 
   const payload: Record<string, unknown> = {
@@ -66,14 +79,14 @@ export async function initiatePayment(
     metadata: {
       ...(options?.metadata ?? {}),
       gateway,
-      channel: gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY" ? "mobile_money" : "checkout",
+      channel: isMobileMoney ? "mobile_money" : "card",
       mobileMoneyProvider: normalizedProvider,
       phone: phone || undefined,
       paystackMode: "hosted-checkout"
     }
   };
 
-  if (gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") {
+  if (isMobileMoney) {
     payload.mobile_money = {
       provider: normalizedProvider,
       phone: phone || undefined

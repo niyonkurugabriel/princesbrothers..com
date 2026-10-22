@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 import { createGoogleState, googleAuthorizationUrl } from "@/features/auth/providers";
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const requested = new URL(request.url).searchParams.get("returnTo") ?? "/account";
-    const returnTo = requested.startsWith("/") && !requested.startsWith("//") && !requested.startsWith("/login") ? requested : "/account";
-    const state = await createGoogleState(returnTo);
+    const state = await createGoogleState();
     return NextResponse.redirect(googleAuthorizationUrl(state));
   } catch {
     return NextResponse.json({ error: "Google sign-in is currently unavailable." }, { status: 503 });

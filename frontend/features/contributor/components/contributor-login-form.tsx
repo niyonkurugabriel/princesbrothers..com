@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PasswordInput } from "@/features/auth/components/password-input";
 
-async function postJson(url: string, body: Record<string, string>) {
+async function postJson(url: string, body: Record<string, string>): Promise<{ message?: string }> {
   const response = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const result = await response.json() as { error?: string };
+  const result = await response.json() as { error?: string; message?: string };
   if (!response.ok) throw new Error(result.error ?? "The request could not be completed.");
+  return result;
 }
 
 export function ContributorLoginForm() {
@@ -44,8 +45,8 @@ export function ContributorLoginForm() {
     setMessage("");
     try {
       if (resetMethod === "email") {
-        await postJson("/api/auth/forgot-password", { email });
-        setMessage("If an active account uses that email, password reset instructions will arrive shortly.");
+        const result = await postJson("/api/auth/forgot-password", { email });
+        setMessage(result.message ?? "If this email matches an active account, a secure recovery link has been sent to your inbox.");
       } else {
         await postJson("/api/auth/phone/request", { phone, purpose: "password-reset" });
         setCodeSent(true);

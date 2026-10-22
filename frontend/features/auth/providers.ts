@@ -142,10 +142,10 @@ export async function verifyPhoneOtp(phone: string, code: string, purpose: OtpPu
   return consumed.affectedRows === 1;
 }
 
-export async function createGoogleState(returnTo = "/account"): Promise<string> {
+export async function createGoogleState(): Promise<string> {
   googleRedirectUri();
   const state = randomUUID();
-  await storeChallenge(oauthKey(state), returnTo, 600);
+  await storeChallenge(oauthKey(state), "google-oauth", 600);
   return state;
 }
 
@@ -154,12 +154,12 @@ export function googleAuthorizationUrl(state: string): string {
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-export async function consumeGoogleState(state: string): Promise<string | null> {
+export async function consumeGoogleState(state: string): Promise<boolean> {
   const id = oauthKey(state);
   const challenge = await findActiveChallenge(id);
-  if (!challenge) return null;
+  if (!challenge) return false;
   const consumed = await execute("DELETE FROM AuthChallenge WHERE id = ? AND value = ? AND expiresAt > ?", [id, challenge.value, new Date()]);
-  return consumed.affectedRows === 1 ? challenge.value : null;
+  return consumed.affectedRows === 1;
 }
 
 export async function exchangeGoogleCode(code: string): Promise<{ id: string; email: string; firstName: string; lastName: string; emailVerified: boolean }> {
