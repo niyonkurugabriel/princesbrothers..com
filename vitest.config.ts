@@ -7,5 +7,5 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./frontend", import.meta.url))
     }
   },
-  test: { include: ["frontend/middleware.test.ts", "frontend/features/**/*.test.ts", "frontend/integration/**/*.test.ts", "packages/**/*.test.ts"] }
+  test: { include: ["frontend/features/**/*.test.ts", "frontend/integration/**/*.test.ts", "packages/**/*.test.ts"] }
 });

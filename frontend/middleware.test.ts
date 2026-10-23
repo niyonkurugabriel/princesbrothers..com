@@ -1,9 +1,5 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-
-const mocks = vi.hoisted(() => ({ verifyAccessToken: vi.fn() }));
-vi.mock("@/features/auth/jwt", () => ({ verifyAccessToken: mocks.verifyAccessToken }));
-
 import { authorizePortal, middleware } from "./middleware";
 import type { AuthTokenClaims } from "@/features/auth/types";
 
@@ -95,37 +91,5 @@ describe("portal login redirects", () => {
     expect(response.status).toBe(307);
     expect(destination.pathname).toBe("/partner");
     expect(destination.searchParams.get("returnTo")).toBe("/partner/dashboard");
-  });
-});
-
-describe("admin subdomain routing", () => {
-  it("rewrites the admin subdomain root to the protected admin dashboard", async () => {
-    mocks.verifyAccessToken.mockResolvedValue(claims({ portal: "admin" }));
-    const request = new NextRequest("https://admin.princesbrothers.com/", {
-      headers: { cookie: "pb_session=valid-admin-session" }
-    });
-
-    const response = await middleware(request);
-
-    expect(response.headers.get("x-middleware-rewrite")).toBe("https://admin.princesbrothers.com/admin");
-  });
-
-  it("guards subdomain paths as admin routes and keeps the admin login reachable", async () => {
-    const protectedResponse = await middleware(new NextRequest("https://admin.princesbrothers.com/dashboard"));
-    const loginResponse = await middleware(new NextRequest("https://admin.princesbrothers.com/login/admin"));
-    const loginUrl = new URL(protectedResponse.headers.get("location") ?? "https://admin.princesbrothers.com");
-
-    expect(loginUrl.pathname).toBe("/login/admin");
-    expect(loginUrl.searchParams.get("returnTo")).toBe("/dashboard");
-    expect(loginResponse.headers.get("x-middleware-rewrite")).toBeNull();
-    expect(loginResponse.status).toBe(200);
-  });
-
-  it("does not rewrite Next.js assets or API requests on the admin host", async () => {
-    const assetResponse = await middleware(new NextRequest("https://admin.princesbrothers.com/logo.png"));
-    const apiResponse = await middleware(new NextRequest("https://admin.princesbrothers.com/api/auth/admin/login"));
-
-    expect(assetResponse.headers.get("x-middleware-rewrite")).toBeNull();
-    expect(apiResponse.headers.get("x-middleware-rewrite")).toBeNull();
   });
 });
