@@ -53,8 +53,23 @@ const loginPath = (request: NextRequest, portal: AuthPortal): URL => {
   return url;
 };
 
+const ADMIN_HOST = "admin.princesbrothers.com";
+
 export async function middleware(request: NextRequest): Promise<NextResponse> {
-  const pathname = request.nextUrl.pathname;
+  const requestedPath = request.nextUrl.pathname;
+  const isAdminHost = request.nextUrl.hostname.toLowerCase() === ADMIN_HOST;
+  const isAdminLogin = isAdminHost && requestedPath === "/login/admin";
+  const isInfrastructurePath =
+    requestedPath === "/api" ||
+    requestedPath.startsWith("/api/") ||
+    requestedPath.startsWith("/_next/") ||
+    /\.(?:avif|css|gif|ico|jpe?g|js|json|map|png|svg|txt|webp|woff2?)$/i.test(requestedPath);
+  const shouldRewriteAdminPath = isAdminHost && !isAdminLogin && !isInfrastructurePath && requestedPath !== "/admin" && !requestedPath.startsWith("/admin/");
+  const pathname = shouldRewriteAdminPath
+    ? `/admin${requestedPath === "/" ? "" : requestedPath}`
+    : requestedPath;
+
+  if (isAdminLogin || isInfrastructurePath) return NextResponse.next();
   if (pathname === "/driver/login") return NextResponse.next();
   const publicContributorPath =
     pathname === "/partner" || pathname === "/partner/apply" || pathname === "/partner/pending";
@@ -67,7 +82,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   const portal = portalForPath(pathname);
-  if (!portal) return NextResponse.next();
+  if (!portal) {
+    if (shouldRewriteAdminPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname;
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
+  }
 
   let claims: AuthTokenClaims | null = null;
   const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
@@ -80,7 +102,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   }
 
   const decision = authorizePortal(pathname, claims);
-  if (decision.allowed) return NextResponse.next();
+  if (decision.allowed) {
+    if (shouldRewriteAdminPath) {
+      const url = request.nextUrl.clone();
+      url.pathname = pathname;
+      return NextResponse.rewrite(url);
+    }
+    return NextResponse.next();
+  }
 
   if (portal === "contributor" && decision.reason === "not-approved" && claims) {
     return NextResponse.redirect(new URL("/partner/pending", request.url));
@@ -92,5 +121,19 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 }
 
 export const config = {
-  matcher: ["/", "/products/:path*", "/cart", "/checkout", "/account/:path*", "/orders/:path*", "/partner/:path*", "/driver/:path*", "/admin/:path*"]
+  matcher: [
+    "/",
+    "/products/:path*",
+    "/cart",
+    "/checkout",
+    "/account/:path*",
+    "/orders/:path*",
+    "/partner/:path*",
+    "/driver/:path*",
+    "/admin/:path*",
+    {
+      source: "/:path*",
+      has: [{ type: "host", value: "admin\\.princesbrothers\\.com" }]
+    }
+  ]
 };

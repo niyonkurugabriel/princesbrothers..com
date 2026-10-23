@@ -98,7 +98,7 @@ CREATE TABLE `Customer` (
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
--- CreateTable
+-- CreateTable 
 CREATE TABLE `Address` (
     `id` VARCHAR(36) NOT NULL,
     `customerId` VARCHAR(36) NOT NULL,
