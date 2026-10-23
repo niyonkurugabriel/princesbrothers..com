@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.17.30",
+    "@types/nodemailer": "^8.0.2",
     "eslint": "^8.57.1",
     "prettier": "^3.5.3",
     "typescript": "^5.8.2",

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { ClipboardList } from "lucide-react";
 import {
   completeCheckoutPayment,
   setCheckoutCurrency,
@@ -174,20 +175,17 @@ export function OrderSummary({
   );
 }
 
-const gatewayLabels: Record<PaymentGateway, string> = {
-  MTN_MOMO: "MTN MoMo",
-  AIRTEL_MONEY: "Airtel Money",
-  LOCAL_CARD: "Local card",
-  MPESA: "M-Pesa",
-  FLUTTERWAVE: "Flutterwave",
-  PAYSTACK: "Bank card",
-  STRIPE: "Card",
-  PAYPAL: "PayPal",
-  APPLE_PAY: "Apple Pay",
-  GOOGLE_PAY: "Google Pay",
-  CASH_ON_DELIVERY: "Cash on delivery",
-  MANUAL: "Manual",
-};
+const checkoutPaymentMethods: { gateway: PaymentGateway; label: string; icon: "mtn" | "airtel" | "manual" }[] = [
+  { gateway: "MTN_MOMO", label: "MTN Mobile Money", icon: "mtn" },
+  { gateway: "AIRTEL_MONEY", label: "Airtel Money", icon: "airtel" },
+  { gateway: "MANUAL", label: "Manual payment", icon: "manual" },
+];
+
+function PaymentMethodIcon({ icon }: { icon: "mtn" | "airtel" | "manual" }) {
+  if (icon === "mtn") return <span className="payment-brand-icon mtn-brand-icon" aria-hidden="true">MTN</span>;
+  if (icon === "airtel") return <span className="payment-brand-icon airtel-brand-icon" aria-hidden="true">A</span>;
+  return <span className="payment-brand-icon manual-brand-icon" aria-hidden="true"><ClipboardList size={21} strokeWidth={1.8} /></span>;
+}
 
 export function CheckoutView({
   initialContext,
@@ -199,10 +197,8 @@ export function CheckoutView({
   const { items, subtotal, clearCart } = useCart();
   const router = useRouter();
   const [context, setContext] = useState(initialContext);
-  const visibleGateways = initialContext.gateways.filter((method) =>
-    ["MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK", "MANUAL"].includes(method)
-  );
-  const [gateway, setGateway] = useState<PaymentGateway>(visibleGateways[0] ?? "MANUAL");
+  const visibleGateways = checkoutPaymentMethods.filter(({ gateway: method }) => initialContext.gateways.includes(method));
+  const [gateway, setGateway] = useState<PaymentGateway>(visibleGateways[0]?.gateway ?? "MANUAL");
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCurrencyPending, startCurrencyTransition] = useTransition();
@@ -210,10 +206,47 @@ export function CheckoutView({
   const [orderNumber, setOrderNumber] = useState("");
   const [manualPaymentCode, setManualPaymentCode] = useState("");
   const [manualWhatsappUrl, setManualWhatsappUrl] = useState("");
+  const [mobileMoneyPaymentId, setMobileMoneyPaymentId] = useState("");
+  const [mobileMoneyStatus, setMobileMoneyStatus] = useState<"pending" | "paid" | "failed" | "check">("pending");
   const [error, setError] = useState("");
   const shipping = 2000;
   const baseTotal = subtotal + shipping + subtotal * 0.08;
   const total = baseTotal;
+
+  useEffect(() => {
+    if (!complete || !mobileMoneyPaymentId || mobileMoneyStatus !== "pending") return;
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function checkPayment() {
+      attempts += 1;
+      try {
+        const response = await fetch(`/api/payment/status/${encodeURIComponent(mobileMoneyPaymentId)}`, { cache: "no-store" });
+        const result = await response.json() as { status?: "pending" | "paid" | "failed"; error?: string };
+        if (!response.ok || !result.status) throw new Error(result.error ?? "Could not verify mobile money payment.");
+        if (cancelled) return;
+        if (result.status === "paid" || result.status === "failed") {
+          setMobileMoneyStatus(result.status);
+          return;
+        }
+      } catch (statusError) {
+        console.error("Mobile money payment status check failed.", statusError);
+      }
+      if (cancelled) return;
+      if (attempts >= 60) {
+        setMobileMoneyStatus("check");
+        return;
+      }
+      timer = setTimeout(checkPayment, 10000);
+    }
+
+    timer = setTimeout(checkPayment, 10000);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [complete, mobileMoneyPaymentId, mobileMoneyStatus]);
 
   if (!items.length && !complete)
     return (
@@ -233,11 +266,26 @@ export function CheckoutView({
         <div className="success-mark">✓</div>
         <div className="section-kicker">Order received</div>
         <h1>
-          Your order is <em>awaiting payment.</em>
+          {gateway === "MANUAL"
+            ? <>Your order is <em>awaiting payment.</em></>
+            : mobileMoneyStatus === "paid"
+              ? <>Mobile money <em>payment confirmed.</em></>
+              : mobileMoneyStatus === "failed"
+                ? <>Mobile money <em>payment failed.</em></>
+                : mobileMoneyStatus === "check"
+                  ? <>Payment is still <em>being processed.</em></>
+                  : <>Approve the payment <em>on your phone.</em></>}
         </h1>
         <p>
-          Order <strong>{orderNumber}</strong> is linked to your buyer account.
-          We&apos;ll email your invoice after payment approval.
+          {gateway === "MANUAL"
+            ? <>Order <strong>{orderNumber}</strong> is linked to your buyer account. We&apos;ll email your invoice after payment approval.</>
+            : mobileMoneyStatus === "paid"
+              ? <>Payment for order <strong>{orderNumber}</strong> is confirmed. Your invoice will be emailed to you.</>
+              : mobileMoneyStatus === "failed"
+                ? <>Payment for order <strong>{orderNumber}</strong> was not completed. Place a new order using manual payment or try again.</>
+                : mobileMoneyStatus === "check"
+                  ? <>Order <strong>{orderNumber}</strong> is still awaiting a provider confirmation. Check your order history in a moment.</>
+                  : <>A payment request was sent to your phone for order <strong>{orderNumber}</strong>. Enter your mobile money PIN to approve it. This page will update automatically.</>}
         </p>
         {manualPaymentCode && (
           <p>
@@ -284,6 +332,8 @@ export function CheckoutView({
       setOrderNumber(result.orderNumber ?? "");
       setManualPaymentCode(gateway === "MANUAL" ? momoPaymentCode : "");
       setManualWhatsappUrl(result.manualWhatsappUrl ?? "");
+      setMobileMoneyPaymentId(gateway === "MANUAL" ? "" : result.paymentId ?? "");
+      setMobileMoneyStatus("pending");
       clearCart();
       if (result.authorizationUrl) {
         window.location.assign(result.authorizationUrl);
@@ -382,7 +432,7 @@ export function CheckoutView({
         <fieldset>
           <legend>Payment in {context.currency}</legend>
           <div className="payment-options">
-            {visibleGateways.map((method) => (
+            {visibleGateways.map(({ gateway: method, label, icon }) => (
               <label
                 className={
                   gateway === method
@@ -397,11 +447,13 @@ export function CheckoutView({
                   checked={gateway === method}
                   onChange={() => setGateway(method)}
                 />
+                <PaymentMethodIcon icon={icon} />
                 <span>
-                  <b>{gatewayLabels[method]}</b>
+                  <b>{label}</b>
                   <small>
-                    Available for{" "}
-                    {context.region.replaceAll("_", " ").toLowerCase()}
+                    {method === "MTN_MOMO" || method === "AIRTEL_MONEY"
+                      ? "Rwanda · RWF"
+                      : `Available for ${context.region.replaceAll("_", " ").toLowerCase()}`}
                   </small>
                 </span>
                 <strong>{context.currencySymbol}</strong>
@@ -428,12 +480,7 @@ export function CheckoutView({
           )}
           {(gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY") && (
             <p className="secure-note" role="status">
-              Pay securely with Paystack. You&apos;ll be prompted to approve the payment on your phone.
-            </p>
-          )}
-          {gateway === "PAYSTACK" && (
-            <p className="secure-note" role="status">
-              Pay securely with a bank card through Paystack&apos;s hosted checkout.
+              You&apos;ll be prompted to approve the payment on your phone.
             </p>
           )}
         </fieldset>

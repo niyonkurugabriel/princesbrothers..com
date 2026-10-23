@@ -9,7 +9,7 @@ import type { PropsWithChildren } from "react";
 import { formatDefaultAmount } from "@/features/payments/payment-context";
 import type { ApprovedContributor, StorefrontProduct } from "@/features/storefront/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
-import { ChevronDown, Home, ShoppingBasket, Sprout, Store, UserRound, UserRoundCog } from "lucide-react";
+import { ChevronDown, Home, ShoppingBasket, Sprout, Store, UserRound } from "lucide-react";
 
 type CartLine = { product: StorefrontProduct; quantity: number };
 type CartContextValue = {
@@ -18,9 +18,9 @@ type CartContextValue = {
   subtotal: number;
   signedIn: boolean;
   portal: string;
-  addItem: (product: StorefrontProduct) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  removeItem: (productId: string) => void;
+  addItem: (_product: StorefrontProduct) => void;
+  updateQuantity: (_productId: string, _quantity: number) => void;
+  removeItem: (_productId: string) => void;
   clearCart: () => void;
   signOut: () => Promise<void>;
 };
@@ -116,11 +116,9 @@ export function SiteHeader() {
             <Link className={`nav-link organic-nav-link-3d ${pathname === "/" ? "active" : ""}`} href="/"><Home aria-hidden="true" className="nav-icon" size={16} />Home</Link>
             <Link className={`nav-link organic-nav-link-3d ${isActive("/products") ? "active" : ""}`} href="/products"><Store aria-hidden="true" className="nav-icon" size={16} />Shop</Link>
             <Link className="nav-link organic-nav-link-3d" href="/#story"><Sprout aria-hidden="true" className="nav-icon" size={16} />Our approach</Link>
-            <Link className={`nav-link organic-nav-link-3d ${isActive("/account") ? "active" : ""}`} href="/account"><UserRound aria-hidden="true" className="nav-icon" size={16} />My account</Link>
           </nav>
           <div className="nav-actions">
             <AccountMenu currentPath={pathname} />
-            <Link className="account-manage-link" href="/account">Manage account</Link>
             <ThemeToggle />
             <Link className="cart-link organic-nav-link-3d" href="/cart" aria-label={`Cart with ${itemCount} items`}>
               <ShoppingBasket aria-hidden="true" size={17} /> Basket <span className="cart-count">{itemCount}</span>
@@ -141,7 +139,7 @@ export function SiteFooter() {
     <footer className="site-footer">
       <div>
         <div className="footer-brand">Princess & Brothers</div>
-        <p>Taste RWANDA's finest.</p>
+        <p>Taste RWANDA&apos;s finest.</p>
       </div>
       <div className="footer-links">
         <Link href="/products">Go to shop</Link>
@@ -215,7 +213,6 @@ function AccountMenu({ currentPath = "/account" }: { currentPath?: string }) {
     {open && <div className="account-dropdown organic-glass organic-water" id="account-dropdown">
       <p className="account-eyebrow">{signedIn ? `Signed in · ${portal}` : "Your Princess & Brothers account"}</p>
       {signedIn ? <>
-        <Link href="/account"><UserRoundCog aria-hidden="true" size={16} /> Manage account</Link>
         <Link href="/orders">Order history</Link>
         <button type="button" onClick={signOut}>Sign out</button>
       </> : <>

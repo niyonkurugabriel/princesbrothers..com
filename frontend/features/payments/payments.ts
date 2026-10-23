@@ -1,6 +1,7 @@
 export type PaymentGateway =
   | "MTN_MOMO"
   | "AIRTEL_MONEY"
+  | "PAWAPAY"
   | "LOCAL_CARD"
   | "MPESA"
   | "FLUTTERWAVE"
@@ -19,7 +20,6 @@ export type PaymentIntent = {
   amount: number;
   currency: PaymentCurrency;
   status: "requires_action" | "succeeded";
-  authorizationUrl?: string;
 };
 
 export type MobileMoneyProvider = "MTN" | "Airtel";
@@ -32,88 +32,95 @@ export function toPaystackMinorAmount(amount: number, currency: PaymentCurrency 
   return Math.round(amount * 100);
 }
 
-export function normalizeMobileMoneyProvider(provider?: string): MobileMoneyProvider {
-  const value = String(provider ?? "MTN").trim().toUpperCase();
-  if (value === "AIRTEL" || value === "AIRTEL_MONEY") return "Airtel";
-  return "MTN";
+export function toPawaPayAmount(amount: number, currency: PaymentCurrency | string): string {
+  if (currency.toUpperCase() !== "RWF") throw new Error("PawaPay mobile money payments are only enabled in RWF.");
+  if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error("PawaPay requires a positive whole-number RWF amount.");
+  return String(amount);
+}
+
+export function pawaPayApiBaseUrl(): URL {
+  const value = process.env.PAWAPAY_API_URL || "https://api.pawapay.io";
+  const url = new URL(value);
+  if (
+    url.protocol !== "https:" ||
+    !["api.pawapay.io", "api.sandbox.pawapay.io"].includes(url.hostname) ||
+    url.pathname !== "/" ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("PAWAPAY_API_URL must be https://api.pawapay.io or https://api.sandbox.pawapay.io.");
+  }
+  return url;
 }
 
 export async function initiatePayment(
   gateway: PaymentGateway,
   amount: number,
   currency: PaymentCurrency,
-  email: string,
+  _email: string,
   reference: string,
-  options?: { phone?: string; provider?: MobileMoneyProvider | string; callbackUrl?: string; metadata?: Record<string, unknown> }
+  options?: { phone?: string; provider?: MobileMoneyProvider | string; metadata?: Record<string, unknown> }
 ): Promise<PaymentIntent> {
   if (gateway === "MANUAL") return { id: reference, gateway, amount, currency, status: "requires_action" };
-  if (!["MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK", "LOCAL_CARD"].includes(gateway)) {
-    throw new Error("That Paystack payment method is not supported.");
+  if (gateway !== "MTN_MOMO" && gateway !== "AIRTEL_MONEY") {
+    throw new Error("That mobile money payment method is not supported.");
   }
-  if (!Number.isFinite(amount) || amount <= 0) throw new Error("Payment amount must be greater than zero.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid email address is required for payment.");
 
-  const secret = process.env.PAYSTACK_SECRET_KEY;
-  if (!secret) throw new Error("Paystack is not configured.");
-
-  const isMobileMoney = gateway === "MTN_MOMO" || gateway === "AIRTEL_MONEY";
-  const expectedProvider: MobileMoneyProvider = gateway === "AIRTEL_MONEY" ? "Airtel" : "MTN";
-  if (isMobileMoney && options?.provider && normalizeMobileMoneyProvider(options.provider) !== expectedProvider) {
+  const apiToken = process.env.PAWAPAY_API_TOKEN;
+  if (!apiToken) throw new Error("The mobile money payment provider is not configured.");
+  const amountString = toPawaPayAmount(amount, currency);
+  const provider: MobileMoneyProvider = gateway === "AIRTEL_MONEY" ? "Airtel" : "MTN";
+  if (options?.provider && options.provider.toUpperCase() !== provider.toUpperCase()) {
     throw new Error("The selected mobile money provider does not match the payment method.");
   }
-  const normalizedProvider = expectedProvider;
+
   const phone = options?.phone?.replace(/\s+/g, "") ?? "";
-  if (isMobileMoney && !/^\+[1-9]\d{7,14}$/.test(phone)) {
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) {
     throw new Error("Enter a valid international phone number for your mobile money payment.");
   }
-  const channels = isMobileMoney ? ["mobile_money"] : ["card"];
-  const callbackUrl = options?.callbackUrl ?? `${process.env.APP_URL ?? "https://www.princesbrothers.com"}/api/payment/verify/${encodeURIComponent(reference)}`;
 
-  const payload: Record<string, unknown> = {
-    email,
-    amount: toPaystackMinorAmount(amount, currency),
+  const orderNumber = options?.metadata?.orderNumber;
+  const providerCode = gateway === "AIRTEL_MONEY" ? "AIRTEL_RWA" : "MTN_MOMO_RWA";
+  const payload = {
+    depositId: reference,
+    amount: amountString,
     currency,
-    reference,
-    channels,
-    callback_url: callbackUrl,
-    metadata: {
-      ...(options?.metadata ?? {}),
-      gateway,
-      channel: isMobileMoney ? "mobile_money" : "card",
-      mobileMoneyProvider: normalizedProvider,
-      phone: phone || undefined,
-      paystackMode: "hosted-checkout"
-    }
+    payer: {
+      type: "MMO",
+      accountDetails: {
+        phoneNumber: phone.slice(1),
+        provider: providerCode
+      }
+    },
+    ...(typeof orderNumber === "string" ? { clientReferenceId: orderNumber } : {})
   };
 
-  if (isMobileMoney) {
-    payload.mobile_money = {
-      provider: normalizedProvider,
-      phone: phone || undefined
-    };
-  }
-
-  const response = await fetch("https://api.paystack.co/transaction/initialize", {
+  const response = await fetch(new URL("/v2/deposits", pawaPayApiBaseUrl()), {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${secret}`,
-      "Content-Type": "application/json"
+      Authorization: `Bearer ${apiToken}`,
+      "Content-Type": "application/json",
+      Accept: "application/json"
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    cache: "no-store"
   });
+  const result = await response.json() as {
+    depositId?: string;
+    status?: string;
+    rejectionReason?: { rejectionMessage?: string };
+    failureReason?: { failureMessage?: string };
+  };
 
-  const result = (await response.json()) as { status?: boolean; message?: string; data?: { authorization_url?: string; reference?: string } };
-
-  if (!response.ok || !result.status || !result.data?.authorization_url) {
-    throw new Error(result.message ?? "Paystack could not initialize this transaction.");
+  if (!response.ok || result.status !== "ACCEPTED") {
+    throw new Error(result.rejectionReason?.rejectionMessage ?? result.failureReason?.failureMessage ?? "The mobile money provider could not accept this payment.");
   }
 
   return {
-    id: result.data.reference ?? reference,
+    id: result.depositId ?? reference,
     gateway,
     amount,
     currency,
-    status: "requires_action",
-    authorizationUrl: result.data.authorization_url
+    status: "requires_action"
   };
 }

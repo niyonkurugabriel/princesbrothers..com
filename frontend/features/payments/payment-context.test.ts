@@ -30,6 +30,6 @@ describe("payment context and FX conversion", () => {
 
     const context = resolvePaymentContext(request);
     expect(context.currency).toBe("KES");
-    expect(context.gateways).toContain("MPESA");
+    expect(context.gateways).toEqual(["MTN_MOMO", "AIRTEL_MONEY", "MANUAL"]);
   });
 });

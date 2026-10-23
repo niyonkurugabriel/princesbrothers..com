@@ -53,7 +53,7 @@ function regionFor(country: string): Region {
   return "INTERNATIONAL";
 }
 
-function localCurrency(country: string, region: Region): PaymentCurrency {
+function localCurrency(country: string): PaymentCurrency {
   if (country === "RW") return "RWF";
   if (country === "KE") return "KES";
   if (country === "UG") return "UGX";
@@ -65,11 +65,8 @@ function localCurrency(country: string, region: Region): PaymentCurrency {
   return DEFAULT_CURRENCY;
 }
 
-function gatewaysFor(region: Region): PaymentGateway[] {
-  if (region === "RWANDA") return ["MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK", "MANUAL"];
-  if (region === "EAST_AFRICA") return ["MPESA", "AIRTEL_MONEY", "PAYSTACK", "MANUAL"];
-  if (region === "AFRICA") return ["PAYSTACK", "MANUAL"];
-  return ["PAYSTACK", "MANUAL"];
+function gatewaysFor(): PaymentGateway[] {
+  return ["MTN_MOMO", "AIRTEL_MONEY", "MANUAL"];
 }
 
 export function convertAmount(amount: number, from: PaymentCurrency, to: PaymentCurrency): number {
@@ -90,7 +87,7 @@ export function resolvePaymentContext(request: Request): PaymentContext {
   const region = regionFor(detected.country);
   const cookieCurrency = request.headers.get("cookie")?.match(/(?:^|;\s*)pb_currency=([^;]+)/)?.[1];
   const requestedCurrency = (request.headers.get("x-pb-currency") ?? cookieCurrency) as PaymentCurrency | null;
-  const currency = requestedCurrency && requestedCurrency in symbols ? requestedCurrency : localCurrency(detected.country, region);
+  const currency = requestedCurrency && requestedCurrency in symbols ? requestedCurrency : localCurrency(detected.country);
   const fx = rates();
-  return { countryCode: detected.country, region, currency, currencySymbol: symbols[currency], fxRate: fx[currency] / fx.RWF, gateways: gatewaysFor(region), detectedFrom: requestedCurrency ? "manual" : detected.detectedFrom };
+  return { countryCode: detected.country, region, currency, currencySymbol: symbols[currency], fxRate: fx[currency] / fx.RWF, gateways: gatewaysFor(), detectedFrom: requestedCurrency ? "manual" : detected.detectedFrom };
 }

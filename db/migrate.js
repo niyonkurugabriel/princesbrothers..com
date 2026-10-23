@@ -39,7 +39,7 @@ async function upgradeExistingSchema(pool) {
   for (const constraint of auditActorConstraints) await pool.query(`ALTER TABLE \`AuditLog\` DROP FOREIGN KEY \`${constraint.CONSTRAINT_NAME}\``);
   await pool.query("ALTER TABLE `Order` MODIFY COLUMN `currency` ENUM('RWF', 'USD', 'EUR', 'GBP', 'CAD', 'KES', 'UGX', 'TZS', 'BIF', 'NGN', 'GHS', 'ZAR') NOT NULL");
   await pool.query("ALTER TABLE `Payment` MODIFY COLUMN `currency` ENUM('RWF', 'USD', 'EUR', 'GBP', 'CAD', 'KES', 'UGX', 'TZS', 'BIF', 'NGN', 'GHS', 'ZAR') NOT NULL");
-  await pool.query("ALTER TABLE `Payment` MODIFY COLUMN `gateway` ENUM('MTN_MOMO', 'AIRTEL_MONEY', 'MPESA', 'FLUTTERWAVE', 'PAYSTACK', 'LOCAL_CARD', 'STRIPE', 'PAYPAL', 'CASH_ON_DELIVERY', 'MANUAL') NOT NULL");
+  await pool.query("ALTER TABLE `Payment` MODIFY COLUMN `gateway` ENUM('MTN_MOMO', 'AIRTEL_MONEY', 'MPESA', 'FLUTTERWAVE', 'PAYSTACK', 'PAWAPAY', 'LOCAL_CARD', 'STRIPE', 'PAYPAL', 'CASH_ON_DELIVERY', 'MANUAL') NOT NULL");
   await ensureColumn(pool, "Payment", "status", "ENUM('INITIATED', 'PENDING_APPROVAL', 'PAID', 'FAILED', 'REFUNDED') NOT NULL DEFAULT 'INITIATED'");
   await ensureColumn(pool, "Payment", "paymentMethod", "VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN'");
   await ensureColumn(pool, "Payment", "updatedAt", "DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)");

@@ -13,11 +13,12 @@ Set the following variables in your deployment environment, secret manager, or V
 - `STRIPE_SECRET_KEY`: Secret key for Stripe payment flows.
 - `STRIPE_WEBHOOK_SECRET`: Webhook signing secret for Stripe events.
 - `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET`: PayPal credentials for international payment routing.
-- `PAYSTACK_SECRET_KEY`: Server-only Paystack secret key for MTN Mobile Money, Airtel Money, and hosted bank-card checkout. Configure the Paystack webhook at `/api/payment/webhook`.
+- `PAWAPAY_API_TOKEN`: Server-only PawaPay bearer token for MTN and Airtel deposits. Set it only on the server; never expose it in browser code.
+- `PAWAPAY_API_URL`: Optional PawaPay API base URL. Defaults to `https://api.pawapay.io`; use `https://api.sandbox.pawapay.io` with a sandbox token.
 - `SMS_PROVIDER=twilio`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_PHONE_NUMBER`: SMS verification and driver PIN recovery. Africa's Talking remains an optional alternative.
 - `COMPANY_WHATSAPP_NUMBER`: International digits-only number used for manual-payment negotiation links.
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`: Google OAuth login.
-- `EMAIL_PROVIDER`, `EMAIL_FROM`, and the matching Resend, SendGrid, or Postmark token: authentication and password-reset email delivery. For Resend, set `EMAIL_PROVIDER=resend` and `RESEND_API_KEY`; verify the sender domain used by `EMAIL_FROM`.
+- `EMAIL_PROVIDER` and `EMAIL_FROM`: authentication and password-reset email delivery. For a local Postfix relay, set `EMAIL_PROVIDER=smtp`, `EMAIL_SERVER_HOST=127.0.0.1`, and `EMAIL_SERVER_PORT=25`; set both SMTP auth variables to `none` when the relay does not require authentication. For Resend, SendGrid, or Postmark, use the matching API token and verify the sender domain used by `EMAIL_FROM`.
 - `SENTRY_DSN`: Optional monitoring and error reporting endpoint.
 
 ## Recommended deployment layout
@@ -32,10 +33,10 @@ Set the following variables in your deployment environment, secret manager, or V
 
 1. Set `DATABASE_URL` to the production database and run `npm run db:migrate`. Fresh databases use the single schema file `db/database_pb.sql`; existing MySQL schemas receive additive updates from the runner.
 2. Generate a strong `AUTH_JWT_SECRET` and rotate it during release windows.
-3. Configure the company Paystack account and its webhook endpoint at `/api/payment/webhook`.
+3. Add a PawaPay API token on the server and enable Rwanda MTN (`MTN_MOMO_RWA`) and Airtel (`AIRTEL_RWA`) deposits in the provider account. Set `PAWAPAY_API_URL` to the sandbox URL while testing.
 4. Confirm `APP_URL` matches the public domain used by login redirects and cookie policies.
 5. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
-6. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and the Paystack webhook before enabling production authentication and checkout.
+6. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
 
 ### Google OAuth redirect URI
 
@@ -53,7 +54,14 @@ STRIPE_SECRET_KEY="sk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."
 PAYPAL_CLIENT_ID="..."
 PAYPAL_CLIENT_SECRET="..."
-PAYSTACK_SECRET_KEY="..."
+PAWAPAY_API_TOKEN="..."
+PAWAPAY_API_URL="https://api.sandbox.pawapay.io"
+EMAIL_PROVIDER="smtp"
+EMAIL_FROM="auth@princesbrothers.com"
+EMAIL_SERVER_HOST="127.0.0.1"
+EMAIL_SERVER_PORT="25"
+EMAIL_SERVER_USER="none"
+EMAIL_SERVER_PASSWORD="none"
 SMS_PROVIDER="twilio"
 TWILIO_ACCOUNT_SID="..."
 TWILIO_AUTH_TOKEN="..."

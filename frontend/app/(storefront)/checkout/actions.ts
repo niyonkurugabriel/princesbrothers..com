@@ -50,7 +50,8 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
   if (selectedCurrency) requestHeaders.set("cookie", `${CURRENCY_COOKIE}=${selectedCurrency}`);
   const request = new Request("https://princesbrothers.com/checkout", { headers: requestHeaders });
   const context = resolvePaymentContext(request);
-  if (!["MANUAL", "MTN_MOMO", "AIRTEL_MONEY", "PAYSTACK"].includes(input.gateway)) return { ok: false, error: "That payment method is not supported." };
+  if (!["MANUAL", "MTN_MOMO", "AIRTEL_MONEY"].includes(input.gateway)) return { ok: false, error: "That payment method is not supported." };
+  if (input.gateway !== "MANUAL" && (address.countryCode !== "RW" || context.currency !== "RWF")) return { ok: false, error: "MTN and Airtel mobile money require a Rwanda delivery address and RWF currency. Choose manual payment or update your checkout details." };
   if (input.gateway !== "MANUAL" && !context.gateways.includes(input.gateway)) return { ok: false, error: "That payment method is not available in your region." };
 
   let attemptedOrderId: string | undefined;
@@ -75,7 +76,7 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
     const subtotal = items.reduce((sum, item) => sum + convertAmount(Number(item.product.retailPrice), item.product.currency, context.currency) * item.quantity, 0);
     const shippingTotal = convertAmount(2000, "RWF", context.currency);
     const taxTotal = Number((subtotal * 0.08).toFixed(2));
-    const total = Number((subtotal + shippingTotal + taxTotal).toFixed(2));
+    const total = Number((subtotal + shippingTotal + taxTotal).toFixed(context.currency === "RWF" ? 0 : 2));
     const orderId = randomUUID();
     const orderNumber = `PB-${Date.now().toString(36).toUpperCase()}-${randomUUID().slice(0, 4).toUpperCase()}`;
     const paymentId = randomUUID();
@@ -91,7 +92,7 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
       await transaction.execute("INSERT INTO Address (id, customerId, type, recipient, line1, city, state, postalCode, countryCode, phone, createdAt, updatedAt) VALUES (?, ?, 'SHIPPING', ?, ?, ?, NULL, ?, ?, ?, ?, ?)", [addressId, customerId, address.recipient.trim(), address.line1.trim(), address.city.trim(), address.postalCode.trim(), address.countryCode, address.phone.trim(), now, now]);
       await transaction.execute("INSERT INTO `Order` (id, orderNumber, customerId, shippingAddressId, status, currency, subtotal, shippingTotal, taxTotal, total, placedAt, createdAt, updatedAt) VALUES (?, ?, ?, ?, 'PENDING_PAYMENT', ?, ?, ?, ?, ?, ?, ?, ?)", [orderId, orderNumber, customerId, addressId, context.currency, subtotal, shippingTotal, taxTotal, total, now, now, now]);
       for (const item of items) await transaction.execute("INSERT INTO OrderItem (id, orderId, productId, productName, quantity, unitPrice, lineTotal) VALUES (?, ?, ?, ?, ?, ?, ?)", [randomUUID(), orderId, item.productId, item.product.name, item.quantity, item.unitPrice, item.unitPrice * item.quantity]);
-      await transaction.execute("INSERT INTO Payment (id, orderId, gateway, gatewayTransactionId, status, paymentMethod, currency, amount, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [paymentId, orderId, input.gateway === "MANUAL" ? "MANUAL" : "PAYSTACK", input.gateway === "MANUAL" ? null : paymentId, input.gateway === "MANUAL" ? "PENDING_APPROVAL" : "INITIATED", input.gateway, context.currency, total, now, now]);
+      await transaction.execute("INSERT INTO Payment (id, orderId, gateway, gatewayTransactionId, status, paymentMethod, currency, amount, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", [paymentId, orderId, input.gateway === "MANUAL" ? "MANUAL" : "PAWAPAY", input.gateway === "MANUAL" ? null : paymentId, input.gateway === "MANUAL" ? "PENDING_APPROVAL" : "INITIATED", input.gateway, context.currency, total, now, now]);
       await transaction.execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, ?, 'Order', ?, ?)", [auditId, user.id, "Created checkout order", orderId, JSON.stringify({ orderNumber, paymentId, gateway: input.gateway, total, currency: context.currency, itemCount: items.length })]);
     });
 
@@ -112,15 +113,16 @@ export async function completeCheckoutPayment(input: CheckoutInput): Promise<{ o
         }
       });
     } catch (error) {
-      await recordPaymentFailure(error instanceof Error ? error.message : "Paystack initialization failed.");
-      return { ok: false, error: error instanceof Error ? error.message : "Paystack could not start payment." };
+      await recordPaymentFailure(error instanceof Error ? error.message : "Mobile money initialization failed.");
+      console.error("Mobile money provider could not initialize checkout payment.", error);
+      return { ok: false, error: "Mobile money payment could not be started. Try again or choose manual payment." };
     }
-    await execute("UPDATE Payment SET gatewayTransactionId = ?, updatedAt = ? WHERE id = ?", [payment.id, new Date(), paymentId]).catch((error) => console.error("Paystack started but transaction reference update failed.", error));
-    await execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, ?, 'Payment', ?, ?)", [randomUUID(), user.id, "Initialized Paystack payment", paymentId, JSON.stringify({ orderNumber, gateway: input.gateway, total, currency: context.currency })]).catch((error) => console.error("Paystack started but initialization audit failed.", error));
-    return { ok: true, paymentId, orderNumber, context, authorizationUrl: payment.authorizationUrl };
+    await execute("UPDATE Payment SET gatewayTransactionId = ?, updatedAt = ? WHERE id = ?", [payment.id, new Date(), paymentId]).catch((error) => console.error("Mobile money payment started but deposit reference update failed.", error));
+    await execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, ?, 'Payment', ?, ?)", [randomUUID(), user.id, "Initialized mobile money payment", paymentId, JSON.stringify({ orderNumber, gateway: input.gateway, provider: "PAWAPAY", total, currency: context.currency })]).catch((error) => console.error("Mobile money payment started but initialization audit failed.", error));
+    return { ok: true, paymentId, orderNumber, context };
   } catch (error) {
     console.error("Checkout order/payment setup failed.", error);
     await recordPaymentFailure(error instanceof Error ? error.message : "Checkout failed.");
-    return { ok: false, error: error instanceof Error && error.message.includes("Paystack") ? error.message : "We could not create or start this order. Please try again." };
+    return { ok: false, error: "We could not create or start this order. Please try again." };
   }
 }

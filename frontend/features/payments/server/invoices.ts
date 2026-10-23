@@ -10,7 +10,7 @@ export async function approvePayment(paymentId: string, actorId?: string): Promi
   const payment = rows[0];
   if (!payment) return { ok: false, error: "Payment was not found." };
   if (payment.status === "PAID") return { ok: true };
-  if (!actorId && payment.status !== "INITIATED") return { ok: false, error: "This payment is not awaiting Paystack confirmation." };
+  if (!actorId && payment.status !== "INITIATED") return { ok: false, error: "This payment is not awaiting provider confirmation." };
   if (actorId && payment.status !== "PENDING_APPROVAL") return { ok: false, error: "Only manual payments awaiting review can be approved here." };
 
   const now = new Date();
@@ -19,7 +19,7 @@ export async function approvePayment(paymentId: string, actorId?: string): Promi
       const [paymentResult] = await transaction.execute("UPDATE Payment SET status = 'PAID', paidAt = ?, updatedAt = ? WHERE id = ? AND status = ?", [now, now, paymentId, payment.status]);
       if (Number((paymentResult as { affectedRows?: number }).affectedRows ?? 0) !== 1) throw new Error("Payment status changed before approval.");
       await transaction.execute("UPDATE `Order` SET status = 'PAID', updatedAt = ? WHERE id = ? AND status = 'PENDING_PAYMENT'", [now, payment.orderId]);
-      await transaction.execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, ?, 'Payment', ?, ?)", [randomUUID(), actorId ?? null, actorId ? "Approved manual payment" : "Confirmed Paystack payment", paymentId, JSON.stringify({ orderNumber: payment.orderNumber, amount: Number(payment.total), currency: payment.currency })]);
+      await transaction.execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, ?, 'Payment', ?, ?)", [randomUUID(), actorId ?? null, actorId ? "Approved manual payment" : "Confirmed mobile money payment", paymentId, JSON.stringify({ orderNumber: payment.orderNumber, amount: Number(payment.total), currency: payment.currency })]);
     });
   } catch {
     return { ok: false, error: "Payment approval could not be recorded." };

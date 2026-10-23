@@ -1,5 +1,6 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { execute, query } from "@princess-brothers/db";
+import nodemailer from "nodemailer";
 import { defaultTtlFor } from "@/features/auth/config";
 import { createSession } from "@/features/auth/session";
 import type { AuthPortal, AuthMethod } from "@/features/auth/types";
@@ -68,6 +69,38 @@ export async function sendEmail(to: string, subject: string, text: string): Prom
   const provider = process.env.EMAIL_PROVIDER;
   const from = process.env.EMAIL_FROM;
   if (!provider || !from) throw providerError("Email provider");
+  if (provider === "smtp") {
+    const host = process.env.EMAIL_SERVER_HOST?.trim();
+    const portValue = process.env.EMAIL_SERVER_PORT?.trim();
+    const port = Number(portValue);
+    if (!host || !portValue || !Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("SMTP requires a valid EMAIL_SERVER_HOST and EMAIL_SERVER_PORT.");
+    }
+
+    const username = process.env.EMAIL_SERVER_USER?.trim();
+    const password = process.env.EMAIL_SERVER_PASSWORD?.trim();
+    const credentials = [username, password].map((value) => value?.toLowerCase());
+    const noAuthentication = credentials.every((value) => !value || value === "none");
+    let auth: { user: string; pass: string } | undefined;
+    if (!noAuthentication) {
+      if (!username || !password || credentials.includes("none")) {
+        throw new Error("Set both EMAIL_SERVER_USER and EMAIL_SERVER_PASSWORD for SMTP authentication, or set both to none for unauthenticated SMTP.");
+      }
+      auth = { user: username, pass: password };
+    }
+
+    const transport = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      ...(auth ? { auth } : {}),
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 20_000
+    });
+    await transport.sendMail({ from, to, subject, text });
+    return;
+  }
   if (provider === "sendgrid") {
     if (!process.env.SENDGRID_API_KEY) throw providerError("SendGrid");
     const response = await fetch("https://api.sendgrid.com/v3/mail/send", { method: "POST", headers: { Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`, "Content-Type": "application/json" }, body: JSON.stringify({ personalizations: [{ to: [{ email: to }] }], from: { email: from }, subject, content: [{ type: "text/plain", value: text }] }) });
@@ -132,7 +165,6 @@ export async function verifyPhoneOtp(phone: string, code: string, purpose: OtpPu
     return false;
   }
 
-  const expiresAt = { gt: new Date() };
   if (value.code !== code) {
     await execute("UPDATE AuthChallenge SET attempts = attempts + 1 WHERE id = ? AND attempts = ? AND expiresAt > ?", [key, challenge.attempts, new Date()]);
     return false;
