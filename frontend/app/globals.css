@@ -121,6 +121,10 @@ html[data-theme="dark"] .site-header .account-dropdown>a,html[data-theme="dark"]
 html[data-theme="dark"] .site-header .account-eyebrow { color:#b9c8bc; }
 html[data-theme="dark"] .site-header .cart-link { border-color:#435347; }
 html[data-theme="dark"] .intro-content p,html[data-theme="dark"] .catalog-header p { color:#b8c6bb; }
+html[data-theme="dark"] .mission-heading h2,html[data-theme="dark"] .mission-cards h3,html[data-theme="dark"] .mission-promise { color:#e4ece6; }
+html[data-theme="dark"] .mission-cards article { background:#202c23; }
+html[data-theme="dark"] .mission-values li { background:#29382d; color:#e4ece6; }
+html[data-theme="dark"] .mission-heading>p,html[data-theme="dark"] .mission-cards article>p:last-child { color:#b8c6bb; }
 html[data-theme="dark"] .product-card-body,html[data-theme="dark"] .auth-panel,html[data-theme="dark"] .account-content,html[data-theme="dark"] .order-card { background:#1c2920; color:#e4ece6; }
 html[data-theme="dark"] .product-name,html[data-theme="dark"] .catalog-header h1,html[data-theme="dark"] .section-heading h2,html[data-theme="dark"] .intro-content h2 { color:#e4ece6; }
 html[data-theme="dark"] .site-footer { background:#0d1510; color:#e4ece6; }

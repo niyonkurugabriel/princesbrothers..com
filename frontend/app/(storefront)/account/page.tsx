@@ -7,6 +7,13 @@ import { AccountForm } from "@/features/storefront/components/account-form";
 import { AUTH_COOKIE_NAME } from "@/features/auth/config";
 import { verifyActiveSession } from "@/features/auth/server";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
+
 export default async function AccountPage() {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   const claims = token ? await verifyActiveSession(token) : null;

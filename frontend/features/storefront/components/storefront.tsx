@@ -115,7 +115,7 @@ export function SiteHeader() {
           <nav className="main-nav navbar-nav" aria-label="Main navigation">
             <Link className={`nav-link organic-nav-link-3d ${pathname === "/" ? "active" : ""}`} href="/"><Home aria-hidden="true" className="nav-icon" size={16} />Home</Link>
             <Link className={`nav-link organic-nav-link-3d ${isActive("/products") ? "active" : ""}`} href="/products"><Store aria-hidden="true" className="nav-icon" size={16} />Shop</Link>
-            <Link className="nav-link organic-nav-link-3d" href="/#story"><Sprout aria-hidden="true" className="nav-icon" size={16} />Our approach</Link>
+            <Link className="nav-link organic-nav-link-3d" href="/#mission"><Sprout aria-hidden="true" className="nav-icon" size={16} />Our mission</Link>
           </nav>
           <div className="nav-actions">
             <AccountMenu currentPath={pathname} />

@@ -1,6 +1,5 @@
 import { getProducts } from "@/features/storefront/server/data";
-
-const SITE_URL = "https://princesbrothers.com";
+import { getSiteUrl } from "@/lib/site-url";
 
 function escapeXml(value: string): string {
   return value
@@ -11,21 +10,21 @@ function escapeXml(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
-function absoluteUrl(path: string): string {
-  return new URL(path, SITE_URL).toString();
+function absoluteUrl(path: string, siteUrl: URL): string {
+  return new URL(path, siteUrl).toString();
 }
 
-function imageUrl(path: string): string | null {
+function imageUrl(path: string, siteUrl: URL): string | null {
   try {
-    const url = new URL(path, SITE_URL);
-    return url.origin === SITE_URL ? url.toString() : null;
+    const url = new URL(path, siteUrl);
+    return url.origin === siteUrl.origin ? url.toString() : null;
   } catch {
     return null;
   }
 }
 
-function imageEntry(path: string, title: string, caption: string): string {
-  const url = imageUrl(path);
+function imageEntry(path: string, title: string, caption: string, siteUrl: URL): string {
+  const url = imageUrl(path, siteUrl);
   if (!url) return "";
   return [
     "    <image:image>",
@@ -40,14 +39,12 @@ function urlEntry(path: string, options: {
   changeFrequency: "daily" | "weekly" | "yearly";
   priority: string;
   images?: string[];
-}): string {
-  const url = absoluteUrl(path);
+}, siteUrl: URL): string {
+  const url = absoluteUrl(path, siteUrl);
   const imageXml = (options.images ?? []).filter(Boolean).join("\n");
   return [
     "  <url>",
     `    <loc>${escapeXml(url)}</loc>`,
-    `    <xhtml:link rel="alternate" hreflang="en-rw" href="${escapeXml(url)}" />`,
-    `    <xhtml:link rel="alternate" hreflang="x-default" href="${escapeXml(url)}" />`,
     `    <changefreq>${options.changeFrequency}</changefreq>`,
     `    <priority>${options.priority}</priority>`,
     ...(imageXml ? [imageXml] : []),
@@ -58,24 +55,25 @@ function urlEntry(path: string, options: {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const siteUrl = getSiteUrl();
   const products = await getProducts();
   const catalogImages = products.map((product) =>
-    imageEntry(product.image, product.name, product.description || `Fresh ${product.name} from Princess & Brothers in Rwanda.`)
+    imageEntry(product.image, product.name, product.description || `Fresh ${product.name} from Princess & Brothers in Rwanda.`, siteUrl)
   );
 
   const entries = [
     urlEntry("/", {
       changeFrequency: "daily",
       priority: "1.0",
-      images: [imageEntry("/logo.png", "Princess & Brothers Ltd", "Fresh produce and organic agricultural delivery in Rwanda.")]
-    }),
+      images: [imageEntry("/logo.png", "Princess & Brothers Ltd", "Fresh produce and organic agricultural delivery in Rwanda.", siteUrl)]
+    }, siteUrl),
     urlEntry("/products", {
       changeFrequency: "daily",
       priority: "0.8",
       images: catalogImages
-    }),
-    urlEntry("/privacy-policy", { changeFrequency: "yearly", priority: "0.3" }),
-    urlEntry("/terms-and-conditions", { changeFrequency: "yearly", priority: "0.3" }),
+    }, siteUrl),
+    urlEntry("/privacy-policy", { changeFrequency: "yearly", priority: "0.3" }, siteUrl),
+    urlEntry("/terms-and-conditions", { changeFrequency: "yearly", priority: "0.3" }, siteUrl),
     ...products.map((product) =>
       urlEntry(`/products/${encodeURIComponent(product.id)}`, {
         changeFrequency: "weekly",
@@ -83,19 +81,17 @@ export async function GET() {
         images: [imageEntry(
           product.image,
           product.name,
-          product.description || `Fresh ${product.name} from Princess & Brothers in Rwanda.`
+          product.description || `Fresh ${product.name} from Princess & Brothers in Rwanda.`,
+          siteUrl
         )]
-      })
+      }, siteUrl)
     )
   ];
 
   const xml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"',
-    '        xmlns:xhtml="http://www.w3.org/1999/xhtml"',
-    '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"',
-    '        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1"',
-    '        xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">',
+    '        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">',
     ...entries,
     "</urlset>"
   ].join("\n");

@@ -34,9 +34,10 @@ Set the following variables in your deployment environment, secret manager, or V
 1. Set `DATABASE_URL` to the production database and run `npm run db:migrate`. Fresh databases use the single schema file `db/database_pb.sql`; existing MySQL schemas receive additive updates from the runner.
 2. Generate a strong `AUTH_JWT_SECRET` and rotate it during release windows.
 3. Add a PawaPay API token on the server and enable Rwanda MTN (`MTN_MOMO_RWA`) and Airtel (`AIRTEL_RWA`) deposits in the provider account. Set `PAWAPAY_API_URL` to the sandbox URL while testing.
-4. Confirm `APP_URL` matches the public domain used by login redirects and cookie policies.
-5. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
-6. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
+4. Set `APP_URL` to `https://www.princesbrothers.com` and use that single canonical origin for login redirects, canonical metadata, and the sitemap. The app permanently redirects the apex host to `www`.
+5. Keep the deployed `/robots.txt` in sync with `frontend/public/robots.txt`. The current production response is served by the web-server static root, so updating the Next.js source alone may not replace that copy.
+6. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
+7. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
 
 ### Google OAuth redirect URI
 
@@ -48,7 +49,6 @@ The redirect URI sent to Google must exactly match an entry under **Google Cloud
 DATABASE_URL="mysql://user:password@host:3306/princesbrothers"
 APP_URL="https://www.princesbrothers.com"
 AUTH_JWT_SECRET=""
-APP_URL="https://www.princesbrothers.com"
 FX_RATES_JSON='{"USD":1,"RWF":1350,"KES":129,"UGX":3700,"TZS":2500,"BIF":2900,"NGN":1600,"GHS":15,"ZAR":18}'
 STRIPE_SECRET_KEY="sk_live_..."
 STRIPE_WEBHOOK_SECRET="whsec_..."

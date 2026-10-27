@@ -7,7 +7,7 @@
   "scripts": {
     "db:create": "mysql --host=127.0.0.1 --port=3307 --user=root -p --execute=\"CREATE DATABASE IF NOT EXISTS princesbrothers;\"",
     "db:migrate": "node --env-file=../../.env ../../db/migrate.js",
-    "db:seed": "node ../../db/seed.js",
+    "db:seed": "node --env-file=../../.env ../../db/seed.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -6,6 +6,13 @@ import { verifyActiveSession } from "@/features/auth/server";
 import { formatLocalAmount } from "@/features/payments/payment-context";
 import { getCustomerOrders } from "@/features/storefront/server/data";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
+
 export default async function OrderHistoryPage() {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   const claims = token ? await verifyActiveSession(token) : null;

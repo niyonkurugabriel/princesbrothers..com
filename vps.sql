@@ -2,9 +2,11 @@
 -- Import into an EMPTY database. This script does not drop existing tables.
 -- It creates the application schema, system roles, and starter catalog only.
 -- It does not insert customer, driver, contributor, or admin-user records.
--- After import, configure ADMIN_USERNAME=admin-nkuru and a unique
--- ADMIN_PASSWORD (at least 12 characters) in the app environment, then run
--- npm run db:seed. The seed creates the first Super admin with a bcrypt hash.
+-- After import and migrations, set ADMIN_USERNAME and a unique ADMIN_PASSWORD
+-- (at least 12 characters) in the project-root .env, then run
+-- npm run db:seed from the project root. The seed hashes the password with
+-- bcrypt and creates the first Super admin only when AdminUser is empty.
+-- Do not put plaintext passwords or password hashes in this SQL dump.
 
 CREATE DATABASE IF NOT EXISTS princesbrothers CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE princesbrothers;

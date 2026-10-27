@@ -57,6 +57,13 @@ const termsSections = [
   }
 ];
 
+export const metadata = {
+  title: "Terms and Conditions",
+  alternates: {
+    canonical: "/terms-and-conditions"
+  }
+};
+
 export default function TermsAndConditionsPage() {
   return <main className="mx-auto max-w-5xl px-4 py-10 text-slate-800 sm:px-6 lg:px-8">
     <header className="rounded-3xl bg-gradient-to-br from-emerald-950 to-emerald-800 px-6 py-10 text-white sm:px-10">

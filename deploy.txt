@@ -23,3 +23,8 @@ To ensure your e-commerce site doesn't crash from "Out of Memory" (OOM) errors d
 4. Use a Reverse Proxy & Process Manager: Put Nginx in front of your Node.js application to handle SSL certificates and static files efficiently. Use PM2 to manage your Node.js processes and automatically restart the app if it fails.
 5. Offload Media Files: Consider hosting your product images on an external cloud storage service (like AWS S3 or Cloudflare R2) and serving them through a Content Delivery Network (CDN) to save your 40GB SSD space.
 If you'd like, I can give you the exact Linux terminal commands to set up a Swap file or show you an Nginx configuration template for Next.js. Which one should we do first?
+
+
+admin prompt 
+SET @admin_password_hash = '<bcrypt hash of your new password>';
+

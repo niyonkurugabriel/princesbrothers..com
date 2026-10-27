@@ -4,6 +4,14 @@ import { verifyActiveSession } from "@/features/auth/server";
 import { ProductListing } from "@/features/storefront/components/product-listing";
 import { getProducts, getPurchasedCategoryIds, getStorefrontCategories } from "@/features/storefront/server/data";
 
+export const metadata = {
+  title: "Fresh produce",
+  description: "Browse seasonal fruit, vegetables and everyday staples from Princess & Brothers contributors in Rwanda.",
+  alternates: {
+    canonical: "/products"
+  }
+};
+
 export default async function ProductsPage({ searchParams }: { searchParams?: Promise<{ category?: string }> }) {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;

@@ -4,6 +4,13 @@ import { AUTH_COOKIE_NAME } from "@/features/auth/config";
 import { verifyActiveSession } from "@/features/auth/server";
 import { getTrackingOrder } from "@/features/storefront/server/data";
 
+export const metadata = {
+  robots: {
+    index: false,
+    follow: false
+  }
+};
+
 export default async function OrderTrackingPage({ params }: { params: Promise<{ orderNumber: string }> }) {
   const { orderNumber } = await params;
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
