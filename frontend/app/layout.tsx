@@ -34,22 +34,17 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </noscript>
         <ThemeSession />
         {children}
-        <Script
-          id="google-analytics-init"
-          strategy="beforeInteractive"
-        >{`window.dataLayer = window.dataLayer || [];
+        <Script id="google-tags-init" strategy="beforeInteractive">
+          {`window.dataLayer = window.dataLayer || [];
 function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'G-7G0X3N8489');`}
+gtag('config', 'G-7G0X3N8489');
+window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});`}
         </Script>
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-7G0X3N8489"
-          strategy="afterInteractive"
+          strategy="beforeInteractive"
         />
-        <Script id="google-tag-manager-init" strategy="beforeInteractive">
-          {`window.dataLayer = window.dataLayer || [];
-window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});`}
-        </Script>
         <Script
           src="https://www.googletagmanager.com/gtm.js?id=GTM-TQ8TNKFT"
           strategy="beforeInteractive"
