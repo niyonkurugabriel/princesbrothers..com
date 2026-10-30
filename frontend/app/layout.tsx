@@ -21,5 +21,8 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={cn("font-sans", geist.variable)}><body><ThemeSession />{children}<Script src="/assets/js/bootstrap.bundle.min.js" strategy="afterInteractive" /><Script src="/assets/js/organic-3d.js" strategy="afterInteractive" /></body></html>;
+  return <html lang="en" className={cn("font-sans", geist.variable)}><body><ThemeSession />{children}<Script id="google-analytics-init" strategy="beforeInteractive">{`window.dataLayer = window.dataLayer || [];
+function gtag(){window.dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-7G0X3N8489');`}</Script><Script src="https://www.googletagmanager.com/gtag/js?id=G-7G0X3N8489" strategy="afterInteractive" /><Script src="/assets/js/bootstrap.bundle.min.js" strategy="afterInteractive" /><Script src="/assets/js/organic-3d.js" strategy="afterInteractive" /></body></html>;
 }
