@@ -21,8 +21,48 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en" className={cn("font-sans", geist.variable)}><body><ThemeSession />{children}<Script id="google-analytics-init" strategy="beforeInteractive">{`window.dataLayer = window.dataLayer || [];
+  return (
+    <html lang="en" className={cn("font-sans", geist.variable)}>
+      <body>
+        <noscript>
+          <iframe
+            src="https://www.googletagmanager.com/ns.html?id=GTM-TQ8TNKFT"
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
+        <ThemeSession />
+        {children}
+        <Script
+          id="google-analytics-init"
+          strategy="beforeInteractive"
+        >{`window.dataLayer = window.dataLayer || [];
 function gtag(){window.dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'G-7G0X3N8489');`}</Script><Script src="https://www.googletagmanager.com/gtag/js?id=G-7G0X3N8489" strategy="afterInteractive" /><Script src="/assets/js/bootstrap.bundle.min.js" strategy="afterInteractive" /><Script src="/assets/js/organic-3d.js" strategy="afterInteractive" /></body></html>;
+gtag('config', 'G-7G0X3N8489');`}
+        </Script>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-7G0X3N8489"
+          strategy="afterInteractive"
+        />
+        <Script id="google-tag-manager-init" strategy="beforeInteractive">
+          {`window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({'gtm.start': new Date().getTime(), event: 'gtm.js'});`}
+        </Script>
+        <Script
+          src="https://www.googletagmanager.com/gtm.js?id=GTM-TQ8TNKFT"
+          strategy="beforeInteractive"
+        />
+        <Script
+          src="/assets/js/bootstrap.bundle.min.js"
+          strategy="afterInteractive"
+        />
+        <Script
+          src="/assets/js/organic-3d.js"
+          strategy="afterInteractive"
+        />
+      </body>
+    </html>
+  );
 }
