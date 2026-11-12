@@ -12,4 +12,14 @@
 
 ## Later phases
 
-Phases 2–10 have not been implemented yet.
+## Phase 2 — Admin table presentation and controls
+
+- **Problem/root cause:** Existing catalog search was inert, and the admin-user, session, audit, and accountant tables lacked consistent sorting/pagination and had inconsistent table presentation. The order workflow is a kanban board, not a table; no standalone customer or driver table exists in the current admin dashboard.
+- **Changes:** Added reusable search, sort, and pagination controls; wired them to the product, admin-user, session, audit, and accountant tables; added no-result states and a dashboard loading skeleton; and standardized sticky headers, hover/zebra rows, rounded containers, keyboard focus, and mobile horizontal scrolling. Changed files: `frontend/app/admin-tables.css`, `frontend/app/globals.css`, `frontend/app/(admin)/admin/dashboard/loading.tsx`, `frontend/features/admin/components/table-controls.tsx`, `frontend/features/admin/components/use-admin-table.ts`, `frontend/features/admin/components/dashboard.tsx`, `frontend/features/admin/components/accountant-dashboard.tsx`.
+- **Migration:** None.
+- **Environment:** None.
+- **Test:** `npm run typecheck --workspace=@princess-brothers/web`; manually filter, sort each column, paginate more than 10 records, and inspect tables at desktop/mobile sizes.
+- **Deployment/manual steps:** Deploy the web assets. No standalone customer/driver management table was added because those panels do not currently exist.
+- **Verification:** Web typecheck passed; the Phase 1 archive tests still pass (3/3); `git diff --check` and targeted ESLint on new helpers/accountant table passed. Full workspace lint remains blocked by pre-existing `no-unused-vars` failures in SmoothUI and existing dashboard code. No browser viewport or console smoke test was possible in the available environment.
+
+Phases 3–10 have not been implemented yet.

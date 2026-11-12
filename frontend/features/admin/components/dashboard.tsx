@@ -7,6 +7,8 @@ import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdmi
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { PasswordInput } from "@/features/auth/components/password-input";
+import { SortableHeading, TablePagination, TableToolbar } from "@/features/admin/components/table-controls";
+import { useAdminTable } from "@/features/admin/components/use-admin-table";
 
 type AdminUser = {
   id: string;
@@ -230,9 +232,13 @@ function AdminUsers({ users, roles, sessions, isSuperAdmin, onCreate, onUpdate, 
   onDelete: (id: string) => void;
   onRevoke: (session: AdminSession) => void;
 }) {
-  const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState("");
-  const filteredUsers = users.filter((user) => `${user.fullName} ${user.username}`.toLowerCase().includes(search.toLowerCase()));
+  const table = useAdminTable(
+    users,
+    (user) => `${user.fullName} ${user.username} ${user.roleName} ${user.isActive ? "active" : "inactive"}`,
+    (user, column) => column === "role" ? user.roleName : column === "status" ? Number(user.isActive) : column === "created" ? user.createdAt : user.fullName,
+    "name",
+  );
   async function saveAdmin(event: React.FormEvent<HTMLFormElement>, user: AdminUser) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -256,16 +262,18 @@ function AdminUsers({ users, roles, sessions, isSuperAdmin, onCreate, onUpdate, 
       <section className="admin-card"><CardHeading eyebrow="Access" title="Assigned roles" /><div className="admin-user-policy"><ul>{roles.map((role) => <li key={role.id}><b>{role.name}</b>: {role.description || role.permissions.join(", ")}</li>)}</ul></div></section>
     </div>
     <section className="admin-card full-card admin-users-list">
-      <div className="table-toolbar"><div className="admin-search">Search <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search admin accounts" aria-label="Search admin accounts" /></div><span className="admin-filter">{filteredUsers.length} admins</span></div>
-      <div className="admin-table"><div className="table-head"><span>Admin</span><span>Role</span><span>Status</span><span>Created</span><span>Actions</span></div>
-        {filteredUsers.map((user) => <Fragment key={user.id}><div className="table-row">
+      <TableToolbar search={table.search} onSearch={table.setSearch} placeholder="Search admin accounts" countLabel={`${table.total} admins`} />
+      <div className="admin-table"><div className="table-head"><span><SortableHeading label="Admin" column="name" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Role" column="role" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Status" column="status" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Created" column="created" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span>Actions</span></div>
+        {table.items.map((user) => <Fragment key={user.id}><div className="table-row">
           <span>{editingId === user.id ? <form id={`edit-admin-${user.id}`} className="admin-inline-edit" onSubmit={(event) => saveAdmin(event, user)}><input name="fullName" defaultValue={user.fullName} aria-label="Admin full name" required /><input name="username" defaultValue={user.username} aria-label="Admin username" minLength={3} required /><PasswordInput name="password" minLength={12} maxLength={72} autoComplete="new-password" placeholder="New password (optional)" aria-label="New password (optional)" /></form> : <><b>{user.fullName}</b><small>@{user.username}</small></>}</span>
           <span><select aria-label={`Role for ${user.username}`} value={user.roleId} onChange={(event) => onUpdate(user.id, { roleId: event.target.value })}>{roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}</select></span>
           <span><em className={`admin-pill ${user.isActive ? "active" : "inactive"}`}>{user.isActive ? "Active" : "Inactive"}</em></span>
           <span>{new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
           <span>{editingId === user.id ? <><button className="admin-text-button" type="submit" form={`edit-admin-${user.id}`}>Save</button><button className="admin-text-button" type="button" onClick={() => setEditingId("")}>Cancel</button></> : <><button className="admin-text-button" type="button" onClick={() => setEditingId(user.id)}>Edit</button><button className="admin-text-button" type="button" onClick={() => onUpdate(user.id, { isActive: !user.isActive })}>{user.isActive ? "Deactivate" : "Activate"}</button><button className="admin-text-button danger" type="button" onClick={() => onDelete(user.id)}>Delete</button></>}</span>
         </div></Fragment>)}
+        {!table.items.length && <p className="catalog-empty">No admin accounts match this search.</p>}
       </div>
+      <TablePagination page={table.page} pageCount={table.pageCount} total={table.total} onPage={table.setPage} />
     </section>
     <Sessions sessions={sessions} onRevoke={onRevoke} />
   </>;
@@ -473,13 +481,36 @@ function PartnersPreview({
   );
 }
 
-function Sessions({ sessions, onRevoke }: { sessions: AdminSession[]; onRevoke: (session: AdminSession) => void }) { return <section className="admin-card sessions-card"><CardHeading eyebrow="Security" title="Active sessions" action="Force logout is immediate" /><div className="admin-table session-table"><div className="table-head"><span>User</span><span>Portal</span><span>Last seen</span><span>Expires</span><span /></div>{sessions.map((session) => <div className="table-row" key={session.id}><span><b>{session.user}</b><small>{session.email}</small></span><span>{session.portal}</span><span>{session.lastSeen}</span><span>{session.expires}</span><button className="danger-button" type="button" onClick={() => onRevoke(session)}>Force logout</button></div>)}</div></section>; }
+function Sessions({ sessions, onRevoke }: { sessions: AdminSession[]; onRevoke: (session: AdminSession) => void }) {
+  const table = useAdminTable(
+    sessions,
+    (session) => `${session.user} ${session.email} ${session.portal}`,
+    (session, column) => column === "portal" ? session.portal : column === "seen" ? Date.parse(session.lastSeen) : column === "expires" ? Date.parse(session.expires) : session.user,
+    "user",
+  );
+  return <section className="admin-card sessions-card">
+    <CardHeading eyebrow="Security" title="Active sessions" action="Force logout is immediate" />
+    <TableToolbar search={table.search} onSearch={table.setSearch} placeholder="Search sessions" countLabel={`${table.total} sessions`} />
+    <div className="admin-table session-table">
+      <div className="table-head"><span><SortableHeading label="User" column="user" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Portal" column="portal" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Last seen" column="seen" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Expires" column="expires" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span>Actions</span></div>
+      {table.items.map((session) => <div className="table-row" key={session.id}><span><b>{session.user}</b><small>{session.email}</small></span><span>{session.portal}</span><span>{session.lastSeen}</span><span>{session.expires}</span><button className="danger-button" type="button" onClick={() => onRevoke(session)}>Force logout</button></div>)}
+      {!table.items.length && <p className="catalog-empty">No active sessions match this search.</p>}
+    </div>
+    <TablePagination page={table.page} pageCount={table.pageCount} total={table.total} onPage={table.setPage} />
+  </section>;
+}
 
 function Catalog({ products: initialProducts, categories, onToast }: { products: AdminProduct[]; categories: AdminProductCategory[]; onToast: (message: string) => void }) {
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<AdminProduct | null>(null);
   const [creating, setCreating] = useState(false);
   const router = useRouter();
+  const table = useAdminTable(
+    products,
+    (product) => `${product.product} ${product.category} ${product.description} ${product.source}`,
+    (product, column) => column === "price" ? product.price : column === "category" ? product.category : column === "stock" ? product.stock : product.product,
+    "name",
+  );
 
   function replaceProduct(updated: AdminProduct) {
     setProducts((current) => current.some((product) => product.id === updated.id) ? current.map((product) => product.id === updated.id ? updated : product) : [updated, ...current]);
@@ -504,10 +535,10 @@ function Catalog({ products: initialProducts, categories, onToast }: { products:
   return <>
     <PageHeading eyebrow="Operations / catalog" title={<>Catalog & <em>inventory.</em></>} copy="Create and edit products, inventory, and storefront visibility." action={<button className="admin-primary-button" type="button" onClick={() => setCreating(true)}>Add product <span>+</span></button>} />
     <section className="admin-card full-card">
-      <div className="table-toolbar"><div className="admin-search">⌕ <input placeholder="Search products or category" aria-label="Search products" /></div><span className="admin-filter">{products.length} products</span></div>
+      <TableToolbar search={table.search} onSearch={table.setSearch} placeholder="Search products or category" countLabel={`${table.total} products`} />
       <div className="admin-table catalog-table">
-        <div className="table-head"><span>Product</span><span>Price</span><span>Category</span><span>Availability</span><span>Stock</span><span /></div>
-        {products.map((product) => <div className="table-row" key={product.id}>
+        <div className="table-head"><span><SortableHeading label="Product" column="name" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Price" column="price" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Category" column="category" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span>Availability</span><span><SortableHeading label="Stock" column="stock" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span>Actions</span></div>
+        {table.items.map((product) => <div className="table-row" key={product.id}>
           <span><b>{product.product}</b><small>{product.source}</small></span>
           <span>{formatLocalAmount(product.price, "RWF")}</span>
           <span>{product.category}</span>
@@ -518,8 +549,9 @@ function Catalog({ products: initialProducts, categories, onToast }: { products:
             <button className="danger-button" type="button" aria-label={`Delete ${product.product}`} onClick={() => void archiveProduct(product)}>Delete</button>
           </span>
         </div>)}
-        {!products.length && <p className="catalog-empty">No catalog products are available. Check the MySQL connection and product records.</p>}
+        {!table.items.length && <p className="catalog-empty">{products.length ? "No products match this search." : "No catalog products are available. Check the MySQL connection and product records."}</p>}
       </div>
+      <TablePagination page={table.page} pageCount={table.pageCount} total={table.total} onPage={table.setPage} />
     </section>
     {(selected || creating) && <ProductEditor product={selected} categories={categories} onClose={() => { setSelected(null); setCreating(false); }} onSaved={replaceProduct} />}
   </>;
@@ -757,4 +789,27 @@ function Rbac({ roles, permissionGroups, onSave, onDelete }: { roles: AdminRole[
   </>;
 }
 
-function AuditTrail({ events }: { events: DashboardData["auditEvents"] }) { const [admin, setAdmin] = useState("all"); const filtered = admin === "all" ? events : events.filter((event) => event.admin === admin); return <><PageHeading eyebrow="Security / immutable history" title={<>The <em>audit trail.</em></>} copy="Every meaningful administrative action, preserved for accountability." /><div className="audit-toolbar"><label>Admin<select value={admin} onChange={(event) => setAdmin(event.target.value)}><option value="all">All admins</option><option>Alex Morgan</option><option>Priya Shah</option></select></label><button className="admin-filter" type="button">All actions ▾</button><button className="admin-filter" type="button">Any date ▾</button></div><section className="admin-card full-card audit-list"><div className="table-head"><span>Admin</span><span>Action</span><span>Entity</span><span>Date</span></div>{filtered.map((event) => <div className="table-row" key={event.id}><span><b>{event.admin}</b></span><span>{event.action}</span><span>{event.entity}</span><span>{event.date}</span></div>)}</section></>; }
+function AuditTrail({ events }: { events: DashboardData["auditEvents"] }) {
+  const [admin, setAdmin] = useState("all");
+  const admins = [...new Set(events.map((event) => event.admin))].sort();
+  const filteredEvents = admin === "all" ? events : events.filter((event) => event.admin === admin);
+  const table = useAdminTable(
+    filteredEvents,
+    (event) => `${event.admin} ${event.action} ${event.entity}`,
+    (event, column) => column === "action" ? event.action : column === "entity" ? event.entity : column === "date" ? Date.parse(event.date) : event.admin,
+    "date",
+  );
+  return <>
+    <PageHeading eyebrow="Security / immutable history" title={<>The <em>audit trail.</em></>} copy="Every meaningful administrative action, preserved for accountability." />
+    <div className="audit-toolbar"><label>Admin<select value={admin} onChange={(event) => { setAdmin(event.target.value); table.setPage(1); }}><option value="all">All admins</option>{admins.map((name) => <option key={name}>{name}</option>)}</select></label></div>
+    <section className="admin-card full-card audit-list">
+      <TableToolbar search={table.search} onSearch={table.setSearch} placeholder="Search audit history" countLabel={`${table.total} events`} />
+      <div className="admin-table">
+        <div className="table-head"><span><SortableHeading label="Admin" column="admin" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Action" column="action" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Entity" column="entity" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span><span><SortableHeading label="Date" column="date" activeColumn={table.sortKey} direction={table.sortDirection} onSort={table.toggleSort} /></span></div>
+        {table.items.map((event) => <div className="table-row" key={event.id}><span><b>{event.admin}</b></span><span>{event.action}</span><span>{event.entity}</span><span>{event.date}</span></div>)}
+        {!table.items.length && <p className="catalog-empty">No audit events match the selected filters.</p>}
+      </div>
+      <TablePagination page={table.page} pageCount={table.pageCount} total={table.total} onPage={table.setPage} />
+    </section>
+  </>;
+}

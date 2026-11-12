@@ -1,0 +1,176 @@
+.admin-card.full-card,
+.sessions-card,
+.accountant-ledger {
+  border: 1px solid rgba(32, 49, 38, 0.1);
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.admin-table {
+  max-height: min(68vh, 720px);
+  overscroll-behavior: contain;
+  position: relative;
+  scrollbar-color: #b7c5b4 transparent;
+  scrollbar-width: thin;
+}
+
+.table-head {
+  background: #f5f8f3;
+  border-bottom: 1px solid #dfe7dd;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.table-row {
+  transition: background-color 140ms ease;
+}
+
+.table-row:nth-child(even) {
+  background: rgba(245, 248, 243, 0.62);
+}
+
+.table-row:hover {
+  background: #edf4e9;
+}
+
+.table-row:focus-within {
+  background: #e8f1e4;
+}
+
+.table-sort-button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  letter-spacing: inherit;
+  padding: 10px 0;
+  text-align: left;
+  text-transform: inherit;
+}
+
+.table-sort-button:hover,
+.table-sort-button:focus-visible {
+  color: #315d3b;
+  outline-color: #315d3b;
+}
+
+.catalog-row-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.catalog-table .table-head,
+.catalog-table .table-row {
+  grid-template-columns: minmax(180px, 1.45fr) minmax(90px, 0.6fr) minmax(125px, 1fr) minmax(120px, 1fr) minmax(95px, 0.7fr) minmax(130px, auto);
+}
+
+.table-pagination {
+  align-items: center;
+  border-top: 1px solid #e2e7ef;
+  color: #68768b;
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  padding: 12px 20px;
+}
+
+.table-pagination > div {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.table-pagination button {
+  background: #fff;
+  border: 1px solid #d7dfd4;
+  border-radius: 8px;
+  color: #315d3b;
+  cursor: pointer;
+  min-height: 34px;
+  padding: 0 11px;
+}
+
+.table-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.table-pagination button:focus-visible {
+  outline: 2px solid #315d3b;
+  outline-offset: 2px;
+}
+
+.catalog-empty {
+  color: #68768b;
+  grid-column: 1 / -1;
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.admin-table-skeleton .table-head,
+.admin-table-skeleton .table-row {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  min-width: 720px;
+}
+
+.admin-table-skeleton .table-head span,
+.admin-table-skeleton .table-row span {
+  animation: admin-table-shimmer 1.4s ease-in-out infinite;
+  background: linear-gradient(90deg, #e8eee5 20%, #f6f8f4 45%, #e8eee5 70%);
+  background-size: 220% 100%;
+  border-radius: 6px;
+  height: 12px;
+  width: 75%;
+}
+
+.admin-table-skeleton .table-head span {
+  height: 10px;
+}
+
+@keyframes admin-table-shimmer {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+@media (max-width: 650px) {
+  .admin-table {
+    max-height: 60vh;
+  }
+
+  .table-head,
+  .table-row {
+    min-width: 740px;
+  }
+
+  .audit-list .table-head,
+  .audit-list .table-row {
+    min-width: 680px;
+  }
+
+  .table-pagination {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .table-pagination > div {
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-row {
+    transition: none;
+  }
+
+  .admin-table-skeleton span {
+    animation: none;
+  }
+}

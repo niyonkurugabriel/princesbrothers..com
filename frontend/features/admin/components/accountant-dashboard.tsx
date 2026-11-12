@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { createAccountantTransaction } from "@/app/(admin)/actions";
 import type { AccountantTransaction } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
+import { SortableHeading, TablePagination, TableToolbar } from "@/features/admin/components/table-controls";
+import { useAdminTable } from "@/features/admin/components/use-admin-table";
 
 type AccountantProfile = { fullName: string; username: string };
 
@@ -38,6 +40,12 @@ export function AccountantDashboard({ profile, transactions }: { profile: Accoun
   const totalIncome = reportTransactions.filter((transaction) => transaction.type === "INCOME").reduce((sum, item) => sum + item.amount, 0);
   const totalExpenses = reportTransactions.filter((transaction) => transaction.type === "EXPENSE").reduce((sum, item) => sum + item.amount, 0);
   const reportHasInvalidRange = Boolean(startDate && endDate && startDate > endDate);
+  const ledger = useAdminTable(
+    transactions,
+    (item) => `${item.transactionDate} ${item.type} ${item.category} ${item.description} ${item.amount}`,
+    (item, column) => column === "type" ? item.type : column === "category" ? item.category : column === "description" ? item.description : column === "amount" ? item.amount : item.transactionDate,
+    "date",
+  );
 
   async function addTransaction(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -144,11 +152,13 @@ export function AccountantDashboard({ profile, transactions }: { profile: Accoun
           </section>
           <section className="admin-card full-card accountant-ledger">
             <div className="card-heading"><div><p className="admin-eyebrow">Private ledger</p><h2>Transactions</h2></div><span>{transactions.length} entries</span></div>
+            <TableToolbar search={ledger.search} onSearch={ledger.setSearch} placeholder="Search ledger" countLabel={`${ledger.total} entries`} />
             <div className="admin-table">
-              <div className="table-head"><span>Date</span><span>Type</span><span>Category</span><span>Description</span><span>Amount</span></div>
-              {transactions.map((item) => <div className="table-row" key={item.id}><span>{item.transactionDate}</span><span className={item.type === "INCOME" ? "accountant-income" : "accountant-expense"}>{item.type === "INCOME" ? "Income" : "Expense"}</span><span>{item.category}</span><span>{item.description}</span><b>{money(item.amount)}</b></div>)}
-              {!transactions.length && <p className="accountant-empty">No transactions have been recorded yet.</p>}
+              <div className="table-head"><span><SortableHeading label="Date" column="date" activeColumn={ledger.sortKey} direction={ledger.sortDirection} onSort={ledger.toggleSort} /></span><span><SortableHeading label="Type" column="type" activeColumn={ledger.sortKey} direction={ledger.sortDirection} onSort={ledger.toggleSort} /></span><span><SortableHeading label="Category" column="category" activeColumn={ledger.sortKey} direction={ledger.sortDirection} onSort={ledger.toggleSort} /></span><span><SortableHeading label="Description" column="description" activeColumn={ledger.sortKey} direction={ledger.sortDirection} onSort={ledger.toggleSort} /></span><span><SortableHeading label="Amount" column="amount" activeColumn={ledger.sortKey} direction={ledger.sortDirection} onSort={ledger.toggleSort} /></span></div>
+              {ledger.items.map((item) => <div className="table-row" key={item.id}><span>{item.transactionDate}</span><span className={item.type === "INCOME" ? "accountant-income" : "accountant-expense"}>{item.type === "INCOME" ? "Income" : "Expense"}</span><span>{item.category}</span><span>{item.description}</span><b>{money(item.amount)}</b></div>)}
+              {!ledger.items.length && <p className="accountant-empty">No transactions match the search.</p>}
             </div>
+            <TablePagination page={ledger.page} pageCount={ledger.pageCount} total={ledger.total} onPage={ledger.setPage} />
           </section>
         </> : <section className="admin-card accountant-report">
           <div className="card-heading"><div><p className="admin-eyebrow">Report builder</p><h2>Generate a transaction report</h2></div></div>
