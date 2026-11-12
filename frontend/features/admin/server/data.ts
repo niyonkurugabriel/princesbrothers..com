@@ -21,9 +21,10 @@ export type AdminProduct = {
   driver: string;
   stock: number;
   source: "Internal" | "Contributor";
+  tags: string[];
 };
 
-export type AdminProductCategory = { id: string; name: string };
+export type AdminProductCategory = { id: string; name: string; slug: string | null };
 
 export async function getAdminProducts(): Promise<AdminProduct[]> {
   try {
@@ -33,12 +34,20 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
       const product = products.get(row.id) ?? {
         id: row.id, product: row.name, description: row.description ?? "", imagePath: row.imagePath ?? "",
         price: convertAmount(Number(row.retailPrice), row.currency as Parameters<typeof convertAmount>[1], "RWF"), active: Boolean(row.isActive), categoryId: row.categoryId ?? "", category: row.categoryName ?? "Uncategorized",
-        location: "Main store", driver: "Unassigned", stock: 0, source: "Internal"
+        location: "Main store", driver: "Unassigned", stock: 0, source: "Internal", tags: []
       };
       product.stock += row.quantity ?? 0;
       if (row.warehouseCode) product.location = row.warehouseCode;
       if (row.source === "CONTRIBUTOR") product.source = "Contributor";
       products.set(row.id, product);
+    }
+    const productIds = [...products.keys()];
+    if (productIds.length) {
+      const tags = await query<RowDataPacket & { productId: string; name: string }>(
+        `SELECT pt.productId, t.name FROM ProductTag pt JOIN Tag t ON t.id = pt.tagId WHERE pt.productId IN (${productIds.map(() => "?").join(",")}) ORDER BY t.name ASC`,
+        productIds,
+      );
+      for (const tag of tags) products.get(tag.productId)?.tags.push(tag.name);
     }
     return [...products.values()];
   } catch {
@@ -48,7 +57,16 @@ export async function getAdminProducts(): Promise<AdminProduct[]> {
 
 export async function getAdminProductCategories(): Promise<AdminProductCategory[]> {
   try {
-    return await query<AdminProductCategory & RowDataPacket>("SELECT id, name FROM Category ORDER BY name ASC");
+    return await query<AdminProductCategory & RowDataPacket>("SELECT id, name, slug FROM Category ORDER BY name ASC");
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdminProductTags(): Promise<string[]> {
+  try {
+    const rows = await query<RowDataPacket & { name: string }>("SELECT name FROM Tag ORDER BY name ASC");
+    return rows.map((row) => row.name);
   } catch {
     return [];
   }

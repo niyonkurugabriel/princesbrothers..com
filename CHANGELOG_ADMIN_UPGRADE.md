@@ -32,4 +32,14 @@
 - **Deployment/manual steps:** Deploy web code. The demand aggregate uses existing order and order-item data; no scheduled task is required.
 - **Verification:** Demand and archive tests passed (5/5), web typecheck passed, and `git diff --check` passed. No database or browser test was run.
 
-Phases 4–10 have not been implemented yet.
+## Phase 4 — Product categories and tags
+
+- **Problem/root cause:** Product metadata had a category relationship but no supported inline category creation, tag model, or tag-aware storefront/admin search. Product descriptions were stored in a 191-character column even though the editor accepts up to 5,000 characters, so longer valid edits could fail in MySQL.
+- **Changes:** Added optional unique category slugs, case/trim-insensitive duplicate checks and inline category creation; added `Tag` and `ProductTag` many-to-many tables; added create/edit persistence for up to 20 tags per product, autocomplete from existing tags, and tag-aware catalog search. Storefront search now includes tags and keeps the existing category filter. Product descriptions use `TEXT` to match editor validation. Changed files: `db/database_pb.sql`, `db/migrate.js`, `frontend/app/(admin)/actions.ts`, `frontend/app/(admin)/admin/dashboard/page.tsx`, `frontend/app/admin-tables.css`, `frontend/features/admin/archive-product.test.ts`, `frontend/features/admin/components/dashboard.tsx`, `frontend/features/admin/server/data.ts`, `frontend/features/admin/server/product-metadata.ts`, `frontend/features/admin/server/product-metadata.test.ts`, `frontend/features/storefront/components/product-listing.tsx`, `frontend/features/storefront/server/data.ts`.
+- **Migration:** Run `npm run db:migrate`. On existing databases, it widens `Product.description` to `TEXT`, adds `Category.slug`, consolidates existing categories whose names differ only by case/leading/trailing whitespace while retaining product and parent links, adds unique category name/slug indexes, and creates `Tag`/`ProductTag` with foreign keys. Review duplicate category records before applying this migration to production; no migration was run in this environment.
+- **Environment:** No new environment variables.
+- **Test:** `npm test -- --run frontend/features/admin/server/product-metadata.test.ts frontend/features/admin/archive-product.test.ts frontend/features/storefront/server/demand.test.ts`; verify creating a category with a duplicate name/slug is rejected, tag assignment persists on create/edit, and storefront/admin searches match category and tags.
+- **Deployment/manual steps:** Apply the migration before deploying. Existing category duplicates are consolidated to the lowest category ID; review existing category data and take the normal database backup before production migration.
+- **Verification:** Web TypeScript typecheck passed; focused metadata/archive/demand tests passed (9/9); migration JavaScript syntax check and `git diff --check` passed. No database migration or browser/API flow was run because no isolated database/browser session was available.
+
+Phases 5–10 have not been implemented yet.

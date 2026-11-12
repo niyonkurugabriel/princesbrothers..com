@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { convertAmount, formatLocalAmount } from "@/features/payments/payment-context";
-import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdminDriver, createAdminAccount, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
+import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdminDriver, createAdminAccount, createAdminCategory, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { PasswordInput } from "@/features/auth/components/password-input";
@@ -24,6 +24,7 @@ type AdminUser = {
 type DashboardData = {
   products: AdminProduct[];
   categories: AdminProductCategory[];
+  availableTags: string[];
   orders: AdminOrder[];
   partners: AdminPartner[];
   roles: AdminRole[];
@@ -210,7 +211,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
     <aside className="admin-sidebar"><div className="admin-brand"><span>P&amp;B</span><b>Admin</b></div><nav className="admin-nav">{["Overview", "Catalog & inventory", "Orders & fulfillment", "Partners", "Payment settings", "My settings", "RBAC management", "Admin users", "Audit trail"].map((item) => <button className={section === item ? "active" : ""} key={item} type="button" onClick={() => setSection(item)}><span className="nav-dot" />{item}</button>)}</nav><div className="admin-user">{data.currentAdmin.profileImageUrl ? <img className="avatar" src={data.currentAdmin.profileImageUrl} alt="" /> : <span className="avatar">{data.currentAdmin.fullName.slice(0, 2).toUpperCase()}</span>}<div><b>{data.currentAdmin.fullName}</b><small>@{data.currentAdmin.username}</small></div><button type="button" aria-label="Open my settings" title="My settings" onClick={() => setSection("My settings")}>•••</button><button className="admin-signout" type="button" aria-label="Sign out" title="Sign out" onClick={signOutAdmin}>↪</button></div></aside>
     <main className="admin-main"><header className="admin-topbar"><button className="admin-mobile-menu" type="button" aria-label="Open admin navigation">☰</button><div><span className="admin-breadcrumb">Admin / </span><b>{section}</b></div><div className="admin-top-actions"><span className="admin-live"><i /> All systems operational</span><ThemeToggle /><button type="button">◎</button></div></header>{toast && <div className="admin-toast">{toast}</div>}<div className="admin-content">
       {section === "Overview" && <Overview data={data} onSection={setSection} />}
-      {section === "Catalog & inventory" && <Catalog products={data.products} categories={data.categories} onToast={(message) => { setToast(message); window.setTimeout(() => setToast(""), 3200); }} />}
+      {section === "Catalog & inventory" && <Catalog products={data.products} categories={data.categories} availableTags={data.availableTags} onToast={(message) => { setToast(message); window.setTimeout(() => setToast(""), 3200); }} />}
       {section === "Orders & fulfillment" && <Orders orders={data.orders} drivers={data.drivers} onProcess={processOrder} onApprovePayment={approvePayment} onAssignDriver={assignDriver} />}
       {section === "Partners" && <Partners partners={partners} tab={partnerTab} setTab={setPartnerTab} onSelect={setSelectedPartner} />}
       {section === "Payment settings" && <PaymentSettings code={momoPaymentCode} canEdit={data.isSuperAdmin} onChange={setMomoPaymentCode} onSave={savePaymentCode} />}
@@ -500,14 +501,14 @@ function Sessions({ sessions, onRevoke }: { sessions: AdminSession[]; onRevoke: 
   </section>;
 }
 
-function Catalog({ products: initialProducts, categories, onToast }: { products: AdminProduct[]; categories: AdminProductCategory[]; onToast: (message: string) => void }) {
+function Catalog({ products: initialProducts, categories, availableTags, onToast }: { products: AdminProduct[]; categories: AdminProductCategory[]; availableTags: string[]; onToast: (message: string) => void }) {
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<AdminProduct | null>(null);
   const [creating, setCreating] = useState(false);
   const router = useRouter();
   const table = useAdminTable(
     products,
-    (product) => `${product.product} ${product.category} ${product.description} ${product.source}`,
+    (product) => `${product.product} ${product.category} ${product.description} ${product.source} ${product.tags.join(" ")}`,
     (product, column) => column === "price" ? product.price : column === "category" ? product.category : column === "stock" ? product.stock : product.product,
     "name",
   );
@@ -553,15 +554,61 @@ function Catalog({ products: initialProducts, categories, onToast }: { products:
       </div>
       <TablePagination page={table.page} pageCount={table.pageCount} total={table.total} onPage={table.setPage} />
     </section>
-    {(selected || creating) && <ProductEditor product={selected} categories={categories} onClose={() => { setSelected(null); setCreating(false); }} onSaved={replaceProduct} />}
+    {(selected || creating) && <ProductEditor product={selected} categories={categories} availableTags={availableTags} onClose={() => { setSelected(null); setCreating(false); }} onSaved={replaceProduct} />}
   </>;
 }
 
-function ProductEditor({ product, categories, onClose, onSaved }: { product: AdminProduct | null; categories: AdminProductCategory[]; onClose: () => void; onSaved: (product: AdminProduct) => void }) {
+function ProductEditor({ product, categories, availableTags, onClose, onSaved }: { product: AdminProduct | null; categories: AdminProductCategory[]; availableTags: string[]; onClose: () => void; onSaved: (product: AdminProduct) => void }) {
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [imagePath, setImagePath] = useState(product?.imagePath ?? "");
+  const [categoryOptions, setCategoryOptions] = useState(categories);
+  const [categoryId, setCategoryId] = useState(product?.categoryId ?? "");
+  const [creatingCategory, setCreatingCategory] = useState(false);
+  const [creatingCategorySaving, setCreatingCategorySaving] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categorySlug, setCategorySlug] = useState("");
+  const [tags, setTags] = useState(product?.tags ?? []);
+  const [tagDraft, setTagDraft] = useState("");
+
+  function addTag(value: string) {
+    const tag = value.trim();
+    if (!tag) return;
+    if (tag.length > 80) {
+      setError("Each tag must be no longer than 80 characters.");
+      return;
+    }
+    if (!tags.some((current) => current.toLocaleLowerCase() === tag.toLocaleLowerCase())) setTags((current) => [...current, tag]);
+    setTagDraft("");
+    setError("");
+  }
+
+  async function addCategory() {
+    setError("");
+    setNotice("");
+    setCreatingCategorySaving(true);
+    try {
+      const result = await createAdminCategory({ name: categoryName, slug: categorySlug });
+      if (result.ok === false) {
+        setError(result.error);
+        return;
+      }
+      const createdCategory = result.category;
+      setCategoryOptions((current) => [...current, createdCategory].sort((first, second) => first.name.localeCompare(second.name)));
+      setCategoryId(createdCategory.id);
+      setCategoryName("");
+      setCategorySlug("");
+      setCreatingCategory(false);
+      setNotice(`Category "${createdCategory.name}" created.`);
+    } catch (createError) {
+      console.error("Product category could not be created.", createError);
+      setError("Category could not be created. Check the connection and try again.");
+    } finally {
+      setCreatingCategorySaving(false);
+    }
+  }
 
   async function uploadImage(file: File | undefined) {
     if (!file) return;
@@ -585,27 +632,43 @@ function ProductEditor({ product, categories, onClose, onSaved }: { product: Adm
     event.preventDefault();
     const form = event.currentTarget;
     const formData = new FormData(form);
+    const savedTags = [...new Map([...tags, tagDraft.trim()].filter(Boolean).map((tag) => [tag.toLocaleLowerCase(), tag])).values()];
+    formData.set("tags", JSON.stringify(savedTags));
+    formData.set("categoryId", categoryId);
     setSaving(true);
-    const result = product ? await updateAdminProduct(formData) : await createAdminProduct(formData);
-    setSaving(false);
-    if (!result.ok) {
-      setError(result.error ?? "Product could not be saved.");
-      return;
+    try {
+      if (product) {
+        const result = await updateAdminProduct(formData);
+        if (result.ok === false) {
+          setError(result.error);
+          return;
+        }
+        onSaved({
+          ...product,
+          product: String(formData.get("name") ?? ""),
+          description: String(formData.get("description") ?? ""),
+          imagePath,
+          price: Number(formData.get("price")),
+          active: formData.get("active") === "on",
+          categoryId,
+          category: categoryOptions.find((category) => category.id === categoryId)?.name ?? "Uncategorized",
+          stock: Number(formData.get("stock")),
+          tags: savedTags
+        });
+      } else {
+        const result = await createAdminProduct(formData);
+        if (result.ok === false) {
+          setError(result.error);
+          return;
+        }
+        onSaved(result.product);
+      }
+    } catch (saveError) {
+      console.error("Product could not be saved.", saveError);
+      setError("Product could not be saved. Check the connection and try again.");
+    } finally {
+      setSaving(false);
     }
-    const categoryId = String(formData.get("categoryId") ?? "");
-    const createdProduct = (result as { product?: { id: string } }).product;
-    onSaved({
-      ...(product ?? { id: "", product: "", description: "", imagePath: "", price: 0, active: false, categoryId: "", category: "Uncategorized", location: "MAIN", driver: "Unassigned", stock: 0, source: "Internal" as const }),
-      id: createdProduct?.id ?? product?.id ?? "",
-      product: String(formData.get("name") ?? ""),
-      description: String(formData.get("description") ?? ""),
-      imagePath,
-      price: Number(formData.get("price")),
-      active: formData.get("active") === "on",
-      categoryId,
-      category: categories.find((category) => category.id === categoryId)?.name ?? "Uncategorized",
-      stock: Number(formData.get("stock"))
-    });
   }
 
   return <div className="admin-modal-backdrop"><form className="admin-modal product-edit-modal" onSubmit={save}>
@@ -615,15 +678,19 @@ function ProductEditor({ product, categories, onClose, onSaved }: { product: Adm
     <div className="product-edit-grid">
       <label>Product name<input name="name" required maxLength={200} defaultValue={product?.product ?? ""} /></label>
       <label>Price (FRw)<input name="price" type="number" min="0" step="1" required defaultValue={product?.price ?? ""} /></label>
-      <label>Category<select name="categoryId" required defaultValue={product?.categoryId ?? ""}><option value="" disabled>Select a category</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+      <label>Category<select name="categoryId" required value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="" disabled>Select a category</option>{categoryOptions.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+      <button className="admin-text-button category-create-toggle" type="button" onClick={() => setCreatingCategory((current) => !current)}>{creatingCategory ? "Cancel new category" : "+ Create category inline"}</button>
+      {creatingCategory && <div className="wide inline-category-form"><label>New category name<input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} maxLength={120} /></label><label>Slug (optional)<input value={categorySlug} onChange={(event) => setCategorySlug(event.target.value)} maxLength={160} pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="e.g. fresh-fruit" /></label><button className="admin-primary-button" type="button" onClick={() => void addCategory()} disabled={creatingCategorySaving}>{creatingCategorySaving ? "Creating…" : "Create category"}</button></div>}
       <label>On-hand stock<input name="stock" type="number" min="0" step="1" required defaultValue={product?.stock ?? 0} /></label>
       <input type="hidden" name="imagePath" value={imagePath} />
       <label className="wide">Product image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadImage(event.currentTarget.files?.[0])} disabled={uploading} />{uploading && <small>Uploading image…</small>}</label>
       {imagePath && <div className="wide"><img src={imagePath} alt="Product image preview" style={{ width: 160, height: 120, objectFit: "cover" }} /></div>}
       <label className="wide">Description<textarea name="description" rows={3} maxLength={5000} defaultValue={product?.description ?? ""} /></label>
+      <div className="wide product-tag-editor"><label htmlFor="product-tags">Tags</label><div className="product-tag-input"><input id="product-tags" list="available-product-tags" value={tagDraft} maxLength={80} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addTag(tagDraft); } }} placeholder="Type a tag and press Enter" /><datalist id="available-product-tags">{availableTags.map((tag) => <option value={tag} key={tag} />)}</datalist><button className="admin-filter" type="button" onClick={() => addTag(tagDraft)}>Add tag</button></div><input type="hidden" name="tags" value={JSON.stringify(tags)} /><div className="product-tag-list">{tags.map((tag) => <span className="product-tag" key={tag}>{tag}<button type="button" aria-label={`Remove ${tag} tag`} onClick={() => setTags((current) => current.filter((item) => item !== tag))}>×</button></span>)}</div></div>
       <label className="product-active"><input name="active" type="checkbox" defaultChecked={product?.active ?? true} /> Show this product in the storefront</label>
     </div>
     {error && <p className="form-error" role="alert">{error}</p>}
+    {notice && <p className="accountant-message" role="status">{notice}</p>}
     <div className="modal-actions"><button className="reject-button" type="button" onClick={onClose}>Cancel</button><button className="admin-primary-button" type="submit" disabled={saving || uploading || categories.length === 0}>{saving ? "Saving…" : product ? "Save product" : "Create product"}</button></div>
   </form></div>;
 }

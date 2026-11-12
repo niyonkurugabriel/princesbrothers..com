@@ -29,7 +29,7 @@ vi.mock("@/features/payments/server/invoices", () => ({ approvePayment: vi.fn() 
 vi.mock("@/shared/server/audit", () => ({ logAuditEvent: mocks.logAuditEvent }));
 vi.mock("bcryptjs", () => ({ default: { hash: vi.fn() } }));
 
-import { archiveAdminProduct } from "@/app/(admin)/actions";
+import { archiveAdminProduct, createAdminCategory } from "@/app/(admin)/actions";
 
 describe("archiveAdminProduct", () => {
   beforeEach(() => {
@@ -40,6 +40,7 @@ describe("archiveAdminProduct", () => {
       authMethod: "password",
       permissions: ["catalog:write"],
     });
+    mocks.query.mockResolvedValue([]);
     mocks.execute.mockResolvedValue({ affectedRows: 1 });
     mocks.logAuditEvent.mockResolvedValue(undefined);
   });
@@ -68,5 +69,14 @@ describe("archiveAdminProduct", () => {
     const result = await archiveAdminProduct("f4f92db0-5d81-4c7a-8da5-d475f88e91e5");
 
     expect(result).toEqual({ ok: false, error: "Product was not found or has already been archived." });
+  });
+
+  it("prevents duplicate category creation before inserting", async () => {
+    mocks.query.mockResolvedValue([{ id: "existing-category" }]);
+
+    const result = await createAdminCategory({ name: "  fruit " });
+
+    expect(result).toEqual({ ok: false, error: "A category with that name or slug already exists." });
+    expect(mocks.execute).not.toHaveBeenCalled();
   });
 });

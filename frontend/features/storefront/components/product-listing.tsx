@@ -29,7 +29,7 @@ export function ProductListing({ products, categories, purchasedCategoryIds, sea
   }
 
   const filteredProducts = products.filter((product) => {
-    const matchesQuery = `${product.name} ${product.category}`.toLowerCase().includes(query.toLowerCase());
+    const matchesQuery = `${product.name} ${product.category} ${product.tags.join(" ")}`.toLowerCase().includes(query.toLowerCase());
     const matchesCategory = category === "all" || product.categoryId === category;
     const matchesPrice = maxPrice === "all" || product.price <= Number(maxPrice);
     return matchesQuery && matchesCategory && matchesPrice;
@@ -38,7 +38,7 @@ export function ProductListing({ products, categories, purchasedCategoryIds, sea
     if (sort === "price-high") return second.price - first.price;
     if (sort === "newest") return second.createdAt - first.createdAt;
     if (sort === "name") return first.name.localeCompare(second.name);
-    const score = (product: StorefrontProduct) => (product.categoryId && purchasedCategoryIds.includes(product.categoryId) ? 5 : 0) + searchHistory.reduce((total, term) => total + (`${product.name} ${product.category} ${product.description}`.toLowerCase().includes(term) ? 2 : 0), 0) + Math.max(0, 2 - (Date.now() - product.createdAt) / (1000 * 60 * 60 * 24 * 30));
+    const score = (product: StorefrontProduct) => (product.categoryId && purchasedCategoryIds.includes(product.categoryId) ? 5 : 0) + searchHistory.reduce((total, term) => total + (`${product.name} ${product.category} ${product.description} ${product.tags.join(" ")}`.toLowerCase().includes(term) ? 2 : 0), 0) + Math.max(0, 2 - (Date.now() - product.createdAt) / (1000 * 60 * 60 * 24 * 30));
     return score(second) - score(first) || second.createdAt - first.createdAt;
   });
 

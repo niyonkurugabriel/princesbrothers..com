@@ -20,6 +20,7 @@ export type StorefrontProduct = {
   currency: "RWF";
   categoryId: string | null;
   category: string;
+  tags: string[];
   image: string;
   rating: number;
   reviewCount: number;
@@ -51,6 +52,7 @@ type StorefrontProductRow = RowDataPacket & {
   currency: string;
   categoryId: string;
   categoryName: string | null;
+  tags: string | string[] | null;
   available: number | null;
   unitsLast7: number | string | null;
   unitsLast30: number | string | null;
@@ -58,6 +60,13 @@ type StorefrontProductRow = RowDataPacket & {
 };
 
 function mapStorefrontProduct(row: StorefrontProductRow): StorefrontProduct {
+  let tags: string[] = [];
+  try {
+    const parsed: unknown = Array.isArray(row.tags) ? row.tags : JSON.parse(row.tags ?? "[]");
+    if (Array.isArray(parsed)) tags = parsed.filter((tag): tag is string => typeof tag === "string");
+  } catch {
+    tags = [];
+  }
   return {
     id: row.id,
     name: row.name,
@@ -67,6 +76,7 @@ function mapStorefrontProduct(row: StorefrontProductRow): StorefrontProduct {
     categoryId: row.categoryId ?? "",
     category: row.categoryName ?? "",
     image: row.imagePath || "/products/fruits.jpg",
+    tags,
     rating: 0,
     reviewCount: 0,
     stock: Number(row.available ?? 0),
@@ -75,9 +85,10 @@ function mapStorefrontProduct(row: StorefrontProductRow): StorefrontProduct {
 }
 
 const catalogFrom = "FROM Product p LEFT JOIN ProductCategory pc ON pc.productId = p.id LEFT JOIN Category c ON c.id = pc.categoryId LEFT JOIN (SELECT productId, SUM(quantity - reserved) AS available FROM InventoryItem GROUP BY productId) i ON i.productId = p.id";
-const catalogSelect = `SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.createdAt, c.id AS categoryId, c.name AS categoryName, COALESCE(i.available, 0) AS available ${catalogFrom}`;
+const tagsSelect = "COALESCE((SELECT JSON_ARRAYAGG(t.name) FROM ProductTag pt JOIN Tag t ON t.id = pt.tagId WHERE pt.productId = p.id), JSON_ARRAY()) AS tags";
+const catalogSelect = `SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.createdAt, c.id AS categoryId, c.name AS categoryName, ${tagsSelect}, COALESCE(i.available, 0) AS available ${catalogFrom}`;
 const demandJoin = "LEFT JOIN (SELECT oi.productId, SUM(oi.quantity) AS unitsLast30, SUM(CASE WHEN o.createdAt >= DATE_SUB(NOW(3), INTERVAL 7 DAY) THEN oi.quantity ELSE 0 END) AS unitsLast7 FROM OrderItem oi JOIN `Order` o ON o.id = oi.orderId WHERE o.createdAt >= DATE_SUB(NOW(3), INTERVAL 30 DAY) AND o.status NOT IN ('PENDING_PAYMENT', 'CANCELLED', 'REFUNDED') GROUP BY oi.productId) demand ON demand.productId = p.id";
-const demandCatalogSelect = `SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.createdAt, c.id AS categoryId, c.name AS categoryName, COALESCE(i.available, 0) AS available, COALESCE(demand.unitsLast7, 0) AS unitsLast7, COALESCE(demand.unitsLast30, 0) AS unitsLast30 ${catalogFrom} ${demandJoin}`;
+const demandCatalogSelect = `SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.createdAt, c.id AS categoryId, c.name AS categoryName, ${tagsSelect}, COALESCE(i.available, 0) AS available, COALESCE(demand.unitsLast7, 0) AS unitsLast7, COALESCE(demand.unitsLast30, 0) AS unitsLast30 ${catalogFrom} ${demandJoin}`;
 
 const loadProducts = unstable_cache(async (): Promise<StorefrontProduct[]> => {
   try {

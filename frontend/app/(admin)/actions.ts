@@ -12,7 +12,8 @@ import { logAuditEvent } from "@/shared/server/audit";
 import { revokeSession } from "@/features/auth/session";
 import { verifyActiveSession } from "@/features/auth/server";
 import { approvePayment } from "@/features/payments/server/invoices";
-import type { RowDataPacket } from "mysql2/promise";
+import { normalizeCategoryInput, parseProductTags } from "@/features/admin/server/product-metadata";
+import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 
 type InventoryRow = RowDataPacket & { id: string; source: "INTERNAL" | "CONTRIBUTOR"; quantity: number; reserved: number };
 
@@ -27,6 +28,20 @@ async function adminActorId(requiredPermission?: string, requiredRole?: string):
     return claims.sub;
   } catch {
     return undefined;
+  }
+}
+
+async function saveProductTags(transaction: PoolConnection, productId: string, tags: string[], now: Date) {
+  await transaction.execute("DELETE FROM ProductTag WHERE productId = ?", [productId]);
+  for (const name of tags) {
+    await transaction.execute(
+      "INSERT INTO Tag (id, name, createdAt) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)",
+      [randomUUID(), name, now],
+    );
+    const [tagRows] = await transaction.execute("SELECT id FROM Tag WHERE name = ? LIMIT 1", [name]);
+    const tagId = (tagRows as Array<{ id: string }>)[0]?.id;
+    if (!tagId) throw new Error("A product tag could not be saved.");
+    await transaction.execute("INSERT INTO ProductTag (productId, tagId) VALUES (?, ?)", [productId, tagId]);
   }
 }
 
@@ -320,7 +335,51 @@ export async function advanceAdminOrder(orderNumber: string) {
   return { ok: true, status: next };
 }
 
-export async function updateAdminProduct(formData: FormData) {
+export async function createAdminCategory(input: { name: string; slug?: string }): Promise<
+  | { ok: false; error: string }
+  | { ok: true; category: { id: string; name: string; slug: string | null } }
+> {
+  const actorId = await adminActorId("catalog:write");
+  if (!actorId) return { ok: false, error: "Admin session with catalog:write permission required." };
+  const categoryInput = normalizeCategoryInput(input?.name, input?.slug);
+  if (!categoryInput.ok) return { ok: false, error: categoryInput.error };
+  const { name, slug } = categoryInput;
+
+  let duplicates: (RowDataPacket & { id: string })[];
+  try {
+    duplicates = await query<RowDataPacket & { id: string }>(
+      "SELECT id FROM Category WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) OR (? IS NOT NULL AND slug = ?) LIMIT 1",
+      [name, slug, slug],
+    );
+  } catch (error) {
+    console.error("Product category duplicate check failed.", error);
+    return { ok: false, error: "Category could not be checked. Check the database connection and try again." };
+  }
+  if (duplicates.length) return { ok: false, error: "A category with that name or slug already exists." };
+
+  const category = { id: randomUUID(), name, slug };
+  try {
+    await execute("INSERT INTO Category (id, name, slug, createdAt) VALUES (?, ?, ?, ?)", [category.id, category.name, category.slug, new Date()]);
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ER_DUP_ENTRY") {
+      return { ok: false, error: "A category with that name or slug already exists." };
+    }
+    console.error("Product category could not be created.", error);
+    return { ok: false, error: "Category could not be created. Check the database connection and try again." };
+  }
+
+  try {
+    await logAuditEvent({ actorId, action: "Created product category", entityType: "Category", entityId: category.id, metadata: { name, slug: category.slug } });
+  } catch (error) {
+    console.error("Category created, but audit logging failed.", error);
+  }
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/products");
+  revalidateTag("catalog");
+  return { ok: true, category };
+}
+
+export async function updateAdminProduct(formData: FormData): Promise<{ ok: false; error: string } | { ok: true }> {
   const actorId = await adminActorId("catalog:write");
   if (!actorId) return { ok: false, error: "Admin session with catalog:write permission required." };
 
@@ -329,6 +388,7 @@ export async function updateAdminProduct(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const imagePath = String(formData.get("imagePath") ?? "").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
+  const tags = parseProductTags(formData.get("tags"));
   const price = Number(formData.get("price"));
   const stock = Number(formData.get("stock"));
   const active = formData.get("active") === "on";
@@ -337,6 +397,7 @@ export async function updateAdminProduct(formData: FormData) {
   if (!id || !name || name.length > 200 || !categoryId) {
     return { ok: false, error: "Enter a product name and choose a category." };
   }
+  if (!tags) return { ok: false, error: "Enter up to 20 tags, each no longer than 80 characters." };
   if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0 || description.length > 5000 || imagePath.length > 512 || !imageIsSafe) {
     return { ok: false, error: "Check the FRW price, stock, description, and uploaded product image." };
   }
@@ -350,6 +411,7 @@ export async function updateAdminProduct(formData: FormData) {
       await transaction.execute("UPDATE Product SET name = ?, description = ?, imagePath = ?, retailPrice = ?, currency = 'RWF', isActive = ?, updatedAt = ? WHERE id = ?", [name, description || null, imagePath || null, price, active, new Date(), id]);
       await transaction.execute("DELETE FROM ProductCategory WHERE productId = ?", [id]);
       if (categoryId) await transaction.execute("INSERT INTO ProductCategory (productId, categoryId) VALUES (?, ?)", [id, categoryId]);
+      await saveProductTags(transaction, id, tags, new Date());
       const [inventoryRows] = await transaction.execute("SELECT id, source, quantity, reserved FROM InventoryItem WHERE productId = ?", [id]);
       const inventory = inventoryRows as InventoryRow[];
       const reserved = inventory.reduce((total, item) => total + item.reserved, 0);
@@ -386,22 +448,28 @@ export async function updateAdminProduct(formData: FormData) {
     return { ok: true };
   } catch (error) {
     if (error instanceof Error && error.message === "Choose a valid product category.") return { ok: false, error: error.message };
+    console.error("Product could not be saved.", error);
     return { ok: false, error: "Product could not be saved. Check the product details and database connection." };
   }
 }
 
-export async function createAdminProduct(formData: FormData) {
+export async function createAdminProduct(formData: FormData): Promise<
+  | { ok: false; error: string }
+  | { ok: true; product: { id: string; product: string; description: string; imagePath: string; price: number; active: boolean; categoryId: string; category: string; location: string; driver: string; stock: number; source: "Internal"; tags: string[] } }
+> {
   const actorId = await adminActorId("catalog:write");
   if (!actorId) return { ok: false, error: "Admin session with catalog:write permission required." };
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim();
   const imagePath = String(formData.get("imagePath") ?? "").trim();
   const categoryId = String(formData.get("categoryId") ?? "").trim();
+  const tags = parseProductTags(formData.get("tags"));
   const price = Number(formData.get("price"));
   const stock = Number(formData.get("stock"));
   const active = formData.get("active") === "on";
   const imageIsSafe = !imagePath || /^\/uploads\/products\/[a-f0-9-]{36}\.(?:jpg|png|webp)$/i.test(imagePath);
   if (!name || name.length > 200 || !categoryId) return { ok: false, error: "Enter a product name and choose a category." };
+  if (!tags) return { ok: false, error: "Enter up to 20 tags, each no longer than 80 characters." };
   if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0 || description.length > 5000 || imagePath.length > 512 || !imageIsSafe) return { ok: false, error: "Check FRW price, stock, description, and uploaded image." };
 
   const id = randomUUID();
@@ -416,15 +484,17 @@ export async function createAdminProduct(formData: FormData) {
       }
       await transaction.execute("INSERT INTO Product (id, name, description, imagePath, retailPrice, currency, isActive, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, 'RWF', ?, ?, ?)", [id, name, description || null, imagePath || null, price, active, now, now]);
       if (categoryId) await transaction.execute("INSERT INTO ProductCategory (productId, categoryId) VALUES (?, ?)", [id, categoryId]);
+      await saveProductTags(transaction, id, tags, now);
       if (stock > 0) await transaction.execute("INSERT INTO InventoryItem (id, productId, source, quantity, warehouseCode, createdAt, updatedAt) VALUES (?, ?, 'INTERNAL', ?, 'MAIN', ?, ?)", [randomUUID(), id, stock, now, now]);
     });
     try { await logAuditEvent({ actorId, action: "Created product", entityType: "Product", entityId: id, metadata: { name, price, currency: "RWF", stock, active } }); } catch (error) { console.error("Product created, but audit logging failed.", error); }
     revalidatePath("/");
     revalidateTag("catalog");
     revalidatePath("/products", "page");
-    return { ok: true, product: { id, product: name, description, imagePath, price, active, categoryId, category: categoryName, location: "MAIN", driver: "Unassigned", stock, source: "Internal" as const } };
+    return { ok: true, product: { id, product: name, description, imagePath, price, active, categoryId, category: categoryName, location: "MAIN", driver: "Unassigned", stock, source: "Internal" as const, tags } };
   } catch (error) {
     if (error instanceof Error && error.message === "Choose a valid product category.") return { ok: false, error: error.message };
+    console.error("Product could not be created.", error);
     return { ok: false, error: "Product could not be saved. Check the product details and database connection." };
   }
 }

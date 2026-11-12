@@ -139,7 +139,7 @@ CREATE TABLE `CartItem` (
 CREATE TABLE `Product` (
     `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(200) NOT NULL,
-    `description` VARCHAR(191) NULL,
+    `description` TEXT NULL,
     `imagePath` VARCHAR(512) NULL,
     `retailPrice` DECIMAL(12, 2) NOT NULL,
     `currency` ENUM('RWF', 'USD', 'EUR', 'GBP', 'CAD') NOT NULL DEFAULT 'RWF',
@@ -157,9 +157,12 @@ CREATE TABLE `Product` (
 CREATE TABLE `Category` (
     `id` VARCHAR(36) NOT NULL,
     `name` VARCHAR(120) NOT NULL,
+    `slug` VARCHAR(160) NULL,
     `parentId` VARCHAR(36) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
+    UNIQUE INDEX `Category_name_key`(`name`),
+    UNIQUE INDEX `Category_slug_key`(`slug`),
     INDEX `Category_parentId_idx`(`parentId`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -171,6 +174,25 @@ CREATE TABLE `ProductCategory` (
 
     INDEX `ProductCategory_categoryId_idx`(`categoryId`),
     PRIMARY KEY (`productId`, `categoryId`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `Tag` (
+    `id` VARCHAR(36) NOT NULL,
+    `name` VARCHAR(80) NOT NULL,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+    UNIQUE INDEX `Tag_name_key`(`name`),
+    PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `ProductTag` (
+    `productId` VARCHAR(36) NOT NULL,
+    `tagId` VARCHAR(36) NOT NULL,
+
+    INDEX `ProductTag_tagId_idx`(`tagId`),
+    PRIMARY KEY (`productId`, `tagId`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
@@ -481,6 +503,8 @@ ALTER TABLE `ProductCategory` ADD CONSTRAINT `ProductCategory_productId_fkey` FO
 
 -- AddForeignKey
 ALTER TABLE `ProductCategory` ADD CONSTRAINT `ProductCategory_categoryId_fkey` FOREIGN KEY (`categoryId`) REFERENCES `Category`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `ProductTag` ADD CONSTRAINT `ProductTag_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `ProductTag` ADD CONSTRAINT `ProductTag_tagId_fkey` FOREIGN KEY (`tagId`) REFERENCES `Tag`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `InventoryItem` ADD CONSTRAINT `InventoryItem_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;

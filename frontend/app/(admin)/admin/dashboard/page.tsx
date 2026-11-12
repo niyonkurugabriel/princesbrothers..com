@@ -5,7 +5,7 @@ import { AdminDashboard } from "@/features/admin/components/dashboard";
 import { AccountantDashboard } from "@/features/admin/components/accountant-dashboard";
 import { AUTH_COOKIE_NAME } from "@/features/auth/config";
 import { verifyActiveSession } from "@/features/auth/server";
-import { adminPermissionGroups, getAccountantTransactions, getAdminAuditEvents, getAdminDrivers, getAdminOrders, getAdminPartners, getAdminProductCategories, getAdminProducts, getAdminRoles, getAdminSessions, getMomoPaymentCode } from "@/features/admin/server/data";
+import { adminPermissionGroups, getAccountantTransactions, getAdminAuditEvents, getAdminDrivers, getAdminOrders, getAdminPartners, getAdminProductCategories, getAdminProductTags, getAdminProducts, getAdminRoles, getAdminSessions, getMomoPaymentCode } from "@/features/admin/server/data";
 
 async function getAdminUsers() {
   const rows = (await query("SELECT a.id, a.username, a.fullName, a.roleId, r.name AS roleName, a.isSuperAdmin, a.isActive, a.createdAt FROM AdminUser a LEFT JOIN AdminRole r ON r.id = a.roleId ORDER BY a.createdAt DESC")) as Array<{ id: string; username: string; fullName: string; roleId: string; roleName: string | null; isSuperAdmin: number; isActive: number; createdAt: Date }>;
@@ -54,7 +54,7 @@ export default async function AdminDashboardPage() {
     return <AccountantDashboard profile={{ fullName: admin.fullName, username: admin.username }} transactions={transactions} />;
   }
 
-  const [products, categories, adminUsers, orders, partners, roles, sessions, auditEvents, drivers, momoPaymentCode, currentAdmin] = await Promise.all([getAdminProducts(), getAdminProductCategories(), getAdminUsers(), getAdminOrders(), getAdminPartners(), getAdminRoles(), getAdminSessions(), getAdminAuditEvents(), getAdminDrivers(), getMomoPaymentCode(), getCurrentAdmin(claims.sub)]);
+  const [products, categories, availableTags, adminUsers, orders, partners, roles, sessions, auditEvents, drivers, momoPaymentCode, currentAdmin] = await Promise.all([getAdminProducts(), getAdminProductCategories(), getAdminProductTags(), getAdminUsers(), getAdminOrders(), getAdminPartners(), getAdminRoles(), getAdminSessions(), getAdminAuditEvents(), getAdminDrivers(), getMomoPaymentCode(), getCurrentAdmin(claims.sub)]);
   if (!currentAdmin) redirect("/login/admin?returnTo=/admin/dashboard");
-  return <AdminDashboard data={{ products, categories, orders, partners, roles, permissionGroups: adminPermissionGroups, auditEvents, sessions, adminUsers, drivers, momoPaymentCode, currentAdmin, isSuperAdmin: claims.roles.includes("Super admin") }} />;
+  return <AdminDashboard data={{ products, categories, availableTags, orders, partners, roles, permissionGroups: adminPermissionGroups, auditEvents, sessions, adminUsers, drivers, momoPaymentCode, currentAdmin, isSuperAdmin: claims.roles.includes("Super admin") }} />;
 }
