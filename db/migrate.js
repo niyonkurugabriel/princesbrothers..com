@@ -34,6 +34,11 @@ async function ensureIndex(pool, table, index, definition) {
   if (!indexes.length) await pool.query(`ALTER TABLE \`${table}\` ADD ${definition}`);
 }
 
+async function ensureForeignKey(pool, table, constraint, definition) {
+  const [constraints] = await pool.execute("SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND CONSTRAINT_NAME = ? AND CONSTRAINT_TYPE = 'FOREIGN KEY' LIMIT 1", [table, constraint]);
+  if (!constraints.length) await pool.query(`ALTER TABLE \`${table}\` ADD CONSTRAINT \`${constraint}\` ${definition}`);
+}
+
 async function upgradeExistingSchema(pool) {
   await ensureColumn(pool, "AdminUser", "profileImageUrl", "VARCHAR(512) NULL");
   await ensureColumn(pool, "Product", "deletedAt", "DATETIME(3) NULL");
@@ -43,6 +48,9 @@ async function upgradeExistingSchema(pool) {
   await ensureIndex(pool, "Driver", "Driver_driveCountMonth_idx", "INDEX `Driver_driveCountMonth_idx` (`driveCountMonth`)");
   await pool.query("CREATE TABLE IF NOT EXISTS `driver_monthly_stats` (`driverId` VARCHAR(36) NOT NULL, `monthStart` DATE NOT NULL, `completedDeliveries` INT UNSIGNED NOT NULL DEFAULT 0, `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), `updatedAt` DATETIME(3) NOT NULL, INDEX `driver_monthly_stats_monthStart_idx` (`monthStart`), PRIMARY KEY (`driverId`, `monthStart`), CONSTRAINT `driver_monthly_stats_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
   await pool.query("CREATE TABLE IF NOT EXISTS `DriverMessage` (`id` VARCHAR(36) NOT NULL, `driverId` VARCHAR(36) NOT NULL, `senderType` ENUM('ADMIN', 'DRIVER') NOT NULL, `senderId` VARCHAR(36) NULL, `senderName` VARCHAR(150) NOT NULL, `body` VARCHAR(2000) NOT NULL, `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), INDEX `DriverMessage_driverId_createdAt_idx` (`driverId`, `createdAt`), PRIMARY KEY (`id`), CONSTRAINT `DriverMessage_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE CASCADE ON UPDATE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+  await ensureColumn(pool, "DriverMessage", "orderId", "VARCHAR(36) NULL");
+  await ensureIndex(pool, "DriverMessage", "DriverMessage_driverId_orderId_createdAt_idx", "INDEX `DriverMessage_driverId_orderId_createdAt_idx` (`driverId`, `orderId`, `createdAt`)");
+  await ensureForeignKey(pool, "DriverMessage", "DriverMessage_orderId_fkey", "FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE CASCADE ON UPDATE CASCADE");
   await pool.query("INSERT IGNORE INTO `driver_monthly_stats` (driverId, monthStart, completedDeliveries, createdAt, updatedAt) SELECT dr.driverId, DATE_FORMAT(pod.deliveredAt, '%Y-%m-01'), COUNT(*), NOW(3), NOW(3) FROM ProofOfDelivery pod JOIN DeliveryRoute dr ON dr.id = pod.routeId GROUP BY dr.driverId, DATE_FORMAT(pod.deliveredAt, '%Y-%m-01')");
   const [descriptionColumns] = await pool.execute("SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'Product' AND column_name = 'description' LIMIT 1");
   if (descriptionColumns[0]?.DATA_TYPE !== "text") await pool.query("ALTER TABLE `Product` MODIFY COLUMN `description` TEXT NULL");

@@ -3,13 +3,14 @@
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { execute, query, withTransaction } from "@princess-brothers/db";
+import { query, withTransaction } from "@princess-brothers/db";
 import { authCookie } from "@/features/auth/cookies";
 import { AUTH_COOKIE_NAME, defaultTtlFor } from "@/features/auth/config";
 import { createSession } from "@/features/auth/session";
 import { verifyActiveSession } from "@/features/auth/server";
 import { logAuditEvent } from "@/shared/server/audit";
 import { isFirstDriverDeliveryCompletion } from "@/features/driver/server/monthly-stats";
+import { canAdvanceDriverDelivery, matchesBuyerOrderNumber } from "@/features/driver/server/delivery-workflow";
 import { isValidDriverPhotoReference } from "@/features/admin/server/product-image-storage";
 import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2/promise";
@@ -34,15 +35,25 @@ async function getCurrentDriver(): Promise<{ driver: DriverAccess; userId: strin
   return rows[0] ? { driver: rows[0], userId: claims.sub } : null;
 }
 
-export async function loadMyDriverMessages() {
+export async function loadMyDriverMessages(orderNumberInput: string) {
   const current = await getCurrentDriver();
   if (!current) return { ok: false as const, error: "Sign in to view driver messages.", messages: [] };
+  const orderNumber = typeof orderNumberInput === "string" ? orderNumberInput.trim() : "";
+  if (!orderNumber || orderNumber.length > 40) return { ok: false as const, error: "Choose a valid order for this chat.", messages: [] };
+  const orderRows = await query<RowDataPacket & { id: string; status: string }>(
+    "SELECT o.id, o.status FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId WHERE o.orderNumber = ? AND dr.driverId = ? LIMIT 1",
+    [orderNumber, current.driver.id],
+  );
+  const order = orderRows[0];
+  if (!order) return { ok: false as const, error: "This order is not assigned to your driver account.", messages: [] };
+  if (order.status === "COMPLETED") return { ok: true as const, messages: [], isOrderDelivered: true };
   const messages = await query<RowDataPacket & { id: string; senderType: "ADMIN" | "DRIVER"; senderName: string; body: string; createdAt: Date }>(
-    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
-    [current.driver.id],
+    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? AND orderId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
+    [current.driver.id, order.id],
   );
   return {
     ok: true as const,
+    isOrderDelivered: false,
     messages: messages.map((message) => ({
       ...message,
       createdAt: message.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
@@ -50,11 +61,14 @@ export async function loadMyDriverMessages() {
   };
 }
 
-export async function sendMyDriverMessage(bodyInput: string) {
+export async function sendMyDriverMessage(orderNumberInput: string, bodyInput: string) {
   const current = await getCurrentDriver();
   if (!current) return { ok: false as const, error: "Sign in to reply to a message." };
+  const orderNumber = typeof orderNumberInput === "string" ? orderNumberInput.trim() : "";
   const body = typeof bodyInput === "string" ? bodyInput.trim() : "";
-  if (!body || body.length > 2000) return { ok: false as const, error: "Enter a message up to 2,000 characters." };
+  if (!orderNumber || orderNumber.length > 40 || !body || body.length > 2000) {
+    return { ok: false as const, error: "Choose a valid order and enter a message up to 2,000 characters." };
+  }
   const users = await query<RowDataPacket & { firstName: string; lastName: string }>(
     "SELECT firstName, lastName FROM `User` WHERE id = ? LIMIT 1",
     [current.userId],
@@ -63,10 +77,23 @@ export async function sendMyDriverMessage(bodyInput: string) {
   if (!senderName) return { ok: false as const, error: "Driver profile was not found." };
   const id = randomUUID();
   const createdAt = new Date();
-  await execute(
-    "INSERT INTO DriverMessage (id, driverId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, 'DRIVER', ?, ?, ?, ?)",
-    [id, current.driver.id, current.userId, senderName, body, createdAt],
-  );
+  try {
+    await withTransaction(async (transaction) => {
+      const [orderRows] = await transaction.execute(
+        "SELECT o.id, o.status FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId WHERE o.orderNumber = ? AND dr.driverId = ? FOR UPDATE",
+        [orderNumber, current.driver.id],
+      );
+      const order = (orderRows as (RowDataPacket & { id: string; status: string })[])[0];
+      if (!order) throw new Error("This order is not assigned to your driver account.");
+      if (order.status === "COMPLETED") throw new Error("Chat is closed because this order was delivered.");
+      await transaction.execute(
+        "INSERT INTO DriverMessage (id, driverId, orderId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, ?, 'DRIVER', ?, ?, ?, ?)",
+        [id, current.driver.id, order.id, current.userId, senderName, body, createdAt],
+      );
+    });
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Message could not be sent." };
+  }
   return { ok: true as const, message: { id, senderType: "DRIVER" as const, senderName, body, createdAt: createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) } };
 }
 
@@ -149,24 +176,28 @@ export async function saveDriverSettings(input: {
   return { ok: true };
 }
 
-export async function updateDriverDeliveryStatus(orderId: string, status: DriverDeliveryStatus) {
+export async function updateDriverDeliveryStatus(orderId: string, status: DriverDeliveryStatus, buyerOrderNumber?: string) {
   const current = await getCurrentDriver();
   if (!current) return { ok: false, error: "Sign in to update a delivery." };
-  if (typeof orderId !== "string" || !orderId || !["PICKED_UP", "IN_TRANSIT", "DELIVERED"].includes(status)) {
+  if (typeof orderId !== "string" || !orderId || typeof status !== "string" ||
+    !["PICKED_UP", "IN_TRANSIT", "DELIVERED"].includes(status)) {
     return { ok: false, error: "Choose a valid delivery status." };
   }
 
   try {
     await withTransaction(async (transaction) => {
       const [orderRows] = await transaction.execute(
-        "SELECT o.id, o.routeId, o.deliveryStatus, d.id AS driverId FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId JOIN Driver d ON d.id = dr.driverId WHERE o.id = ? AND d.id = ? FOR UPDATE",
+        "SELECT o.id, o.orderNumber, o.routeId, o.deliveryStatus, d.id AS driverId FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId JOIN Driver d ON d.id = dr.driverId WHERE o.id = ? AND d.id = ? FOR UPDATE",
         [orderId, current.driver.id],
       );
-      const order = (orderRows as (RowDataPacket & { id: string; routeId: string; driverId: string; deliveryStatus: DriverDeliveryStatus | null })[])[0];
+      const order = (orderRows as (RowDataPacket & { id: string; orderNumber: string; routeId: string; driverId: string; deliveryStatus: DriverDeliveryStatus | null })[])[0];
       if (!order) throw new Error("Delivery is not assigned to this driver.");
-      const progress: Record<DriverDeliveryStatus, number> = { PICKED_UP: 0, IN_TRANSIT: 1, DELIVERED: 2 };
-      if (order.deliveryStatus && progress[status] < progress[order.deliveryStatus]) {
-        throw new Error("A delivery cannot be moved back to an earlier status.");
+      if (!canAdvanceDriverDelivery(order.deliveryStatus, status)) {
+        throw new Error("Approve pickup and mark the order in transit before confirming delivery.");
+      }
+      if (status === "DELIVERED" &&
+        (typeof buyerOrderNumber !== "string" || !matchesBuyerOrderNumber(order.orderNumber, buyerOrderNumber))) {
+        throw new Error("Enter the order number provided by the buyer to confirm delivery.");
       }
 
       const firstCompletion = isFirstDriverDeliveryCompletion(order.deliveryStatus, status);
@@ -176,6 +207,9 @@ export async function updateDriverDeliveryStatus(orderId: string, status: Driver
         [status, orderStatus, new Date(), orderId, order.routeId],
       );
       if (!("affectedRows" in result) || result.affectedRows !== 1) throw new Error("Delivery status could not be saved.");
+      if (status === "DELIVERED") {
+        await transaction.execute("DELETE FROM DriverMessage WHERE driverId = ? AND orderId = ?", [order.driverId, order.id]);
+      }
 
       if (firstCompletion) {
         const [monthRows] = await transaction.execute("SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS monthStart");

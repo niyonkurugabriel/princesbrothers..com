@@ -2,11 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 
-export function ProofCapture({ onComplete, onCancel }: { onComplete: () => void; onCancel: () => void }) {
+export function ProofCapture({
+  onComplete,
+  onCancel,
+}: {
+  onComplete: (buyerOrderNumber: string) => Promise<{ ok: boolean; error?: string }>;
+  onCancel: () => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [drawing, setDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [hasPhoto, setHasPhoto] = useState(false);
+  const [buyerOrderNumber, setBuyerOrderNumber] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -47,5 +56,35 @@ export function ProofCapture({ onComplete, onCancel }: { onComplete: () => void;
     setHasSignature(false);
   }
 
-  return <div className="proof-capture"><div className="proof-capture-heading"><div><p className="driver-eyebrow">Final step</p><h3>Capture delivery proof</h3></div><button className="driver-close" type="button" onClick={onCancel} aria-label="Close proof capture">×</button></div><label className="photo-upload"><span className="capture-icon">⌾</span><b>{hasPhoto ? "Delivery photo added ✓" : "Take a delivery photo"}</b><small>Use your camera or choose a photo</small><input accept="image/*" capture="environment" onChange={(event) => setHasPhoto(Boolean(event.target.files?.length))} type="file" /></label><div className="signature-heading"><b>Recipient signature</b><button className="clear-signature" type="button" onClick={clear}>Clear</button></div><div className="signature-box"><canvas ref={canvasRef} height="180" width="600" onPointerDown={start} onPointerMove={move} onPointerUp={() => setDrawing(false)} onPointerLeave={() => setDrawing(false)} /><span>Sign here</span></div><button className="driver-primary-button" disabled={!hasSignature || !hasPhoto} type="button" onClick={onComplete}>Complete delivery <span aria-hidden="true">✓</span></button></div>;
+  async function completeDelivery() {
+    if (!buyerOrderNumber.trim() || isSubmitting) return;
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const result = await onComplete(buyerOrderNumber);
+      if (result.ok) onCancel();
+      else setError(result.error ?? "Check the buyer's order number and try again.");
+    } catch (submitError) {
+      console.error("Delivery confirmation failed.", submitError);
+      setError("Delivery could not be confirmed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return <div className="proof-capture">
+    <div className="proof-capture-heading">
+      <div><p className="driver-eyebrow">Final step</p><h3>Confirm delivery</h3></div>
+      <button className="driver-close" type="button" onClick={onCancel} aria-label="Close proof capture">×</button>
+    </div>
+    <label className="buyer-order-number">Order number from the buyer
+      <input autoComplete="off" maxLength={40} value={buyerOrderNumber} onChange={(event) => setBuyerOrderNumber(event.target.value)} placeholder="Enter the buyer's order number" />
+      <small>Confirm the order number with the buyer before handing over the products.</small>
+    </label>
+    <label className="photo-upload"><span className="capture-icon">⌾</span><b>{hasPhoto ? "Delivery photo added ✓" : "Take a delivery photo"}</b><small>Use your camera or choose a photo</small><input accept="image/*" capture="environment" onChange={(event) => setHasPhoto(Boolean(event.target.files?.length))} type="file" /></label>
+    <div className="signature-heading"><b>Recipient signature</b><button className="clear-signature" type="button" onClick={clear}>Clear</button></div>
+    <div className="signature-box"><canvas ref={canvasRef} height="180" width="600" onPointerDown={start} onPointerMove={move} onPointerUp={() => setDrawing(false)} onPointerLeave={() => setDrawing(false)} /><span>Sign here</span></div>
+    {error && <p className="driver-error" role="alert">{error}</p>}
+    <button className="driver-primary-button" disabled={!hasSignature || !hasPhoto || !buyerOrderNumber.trim() || isSubmitting} type="button" onClick={() => void completeDelivery()}>{isSubmitting ? "Confirming delivery…" : "Confirm delivery"} <span aria-hidden="true">✓</span></button>
+  </div>;
 }

@@ -559,7 +559,7 @@ export async function assignAdminDriver(orderNumber: string, driverId: string) {
       const lockedOrder = (lockedRows as (RowDataPacket & { status: string })[])[0];
       if (!lockedOrder || lockedOrder.status !== "READY_FOR_PICKUP") throw new Error("The order changed before it could be assigned.");
       await transaction.execute("INSERT INTO DeliveryRoute (id, driverId, routeDate, status, createdAt, updatedAt) VALUES (?, ?, CURRENT_DATE, 'PICKED_UP', ?, ?)", [routeId, driverId, now, now]);
-      const [result] = await transaction.execute("UPDATE `Order` SET routeId = ?, status = 'OUT_FOR_DELIVERY', deliveryStatus = 'PICKED_UP', updatedAt = ? WHERE id = ? AND status = 'READY_FOR_PICKUP'", [routeId, now, order.id]);
+      const [result] = await transaction.execute("UPDATE `Order` SET routeId = ?, status = 'OUT_FOR_DELIVERY', deliveryStatus = NULL, updatedAt = ? WHERE id = ? AND status = 'READY_FOR_PICKUP'", [routeId, now, order.id]);
       if (!("affectedRows" in result) || result.affectedRows !== 1) throw new Error("The order changed before it could be assigned.");
       await transaction.execute("INSERT INTO AuditLog (id, actorId, action, entityType, entityId, metadata) VALUES (?, ?, 'Assigned order to driver', 'Order', ?, ?)", [randomUUID(), actorId, order.id, JSON.stringify({ orderNumber, driverId, routeId })]);
     });
@@ -570,18 +570,33 @@ export async function assignAdminDriver(orderNumber: string, driverId: string) {
   return { ok: true };
 }
 
-export async function loadAdminDriverMessages(driverId: string) {
+export async function loadAdminDriverMessages(driverId: string, orderNumberInput: string) {
   const actorId = await adminActorId("orders:write");
   if (!actorId) return { ok: false as const, error: "Admin session with orders:write permission required.", messages: [] };
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId)) {
-    return { ok: false as const, error: "Choose a valid driver.", messages: [] };
+  const orderNumber = typeof orderNumberInput === "string" ? orderNumberInput.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId) ||
+    !orderNumber || orderNumber.length > 40) {
+    return { ok: false as const, error: "Choose a valid driver and order.", messages: [] };
   }
+  const [orders, drivers] = await Promise.all([
+    query<RowDataPacket & { id: string; status: string; assignedDriverId: string | null }>(
+      "SELECT o.id, o.status, dr.driverId AS assignedDriverId FROM `Order` o LEFT JOIN DeliveryRoute dr ON dr.id = o.routeId WHERE o.orderNumber = ? LIMIT 1",
+      [orderNumber],
+    ),
+    query<RowDataPacket & { id: string }>("SELECT id FROM Driver WHERE id = ? LIMIT 1", [driverId]),
+  ]);
+  const order = orders[0];
+  if (!drivers[0] || !order || (order.assignedDriverId && order.assignedDriverId !== driverId)) {
+    return { ok: false as const, error: "This order is not available for the selected driver.", messages: [] };
+  }
+  if (order.status === "COMPLETED") return { ok: true as const, messages: [], isOrderDelivered: true };
   const messages = await query<RowDataPacket & { id: string; senderType: "ADMIN" | "DRIVER"; senderName: string; body: string; createdAt: Date }>(
-    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
-    [driverId],
+    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? AND orderId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
+    [driverId, order.id],
   );
   return {
     ok: true as const,
+    isOrderDelivered: false,
     messages: messages.map((message) => ({
       ...message,
       createdAt: message.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
@@ -589,12 +604,14 @@ export async function loadAdminDriverMessages(driverId: string) {
   };
 }
 
-export async function sendAdminDriverMessage(driverId: string, bodyInput: string) {
+export async function sendAdminDriverMessage(driverId: string, orderNumberInput: string, bodyInput: string) {
   const actorId = await adminActorId("orders:write");
   if (!actorId) return { ok: false as const, error: "Admin session with orders:write permission required." };
+  const orderNumber = typeof orderNumberInput === "string" ? orderNumberInput.trim() : "";
   const body = typeof bodyInput === "string" ? bodyInput.trim() : "";
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId) || !body || body.length > 2000) {
-    return { ok: false as const, error: "Enter a message up to 2,000 characters for a valid driver." };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId) ||
+    !orderNumber || orderNumber.length > 40 || !body || body.length > 2000) {
+    return { ok: false as const, error: "Choose a valid order and enter a message up to 2,000 characters." };
   }
   const [drivers, admins] = await Promise.all([
     query<RowDataPacket & { id: string }>("SELECT id FROM Driver WHERE id = ? LIMIT 1", [driverId]),
@@ -603,10 +620,28 @@ export async function sendAdminDriverMessage(driverId: string, bodyInput: string
   if (!drivers[0] || !admins[0]) return { ok: false as const, error: "Driver or admin account was not found." };
   const id = randomUUID();
   const createdAt = new Date();
-  await execute(
-    "INSERT INTO DriverMessage (id, driverId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, 'ADMIN', ?, ?, ?, ?)",
-    [id, driverId, actorId, admins[0].fullName, body, createdAt],
-  );
+  try {
+    await withTransaction(async (transaction) => {
+      const [orderRows] = await transaction.execute(
+        "SELECT id, status, routeId FROM `Order` WHERE orderNumber = ? FOR UPDATE",
+        [orderNumber],
+      );
+      const order = (orderRows as (RowDataPacket & { id: string; status: string; routeId: string | null })[])[0];
+      if (!order) throw new Error("This order is not available for the selected driver.");
+      if (order.routeId) {
+        const [routeRows] = await transaction.execute("SELECT driverId FROM DeliveryRoute WHERE id = ? LIMIT 1", [order.routeId]);
+        const route = (routeRows as (RowDataPacket & { driverId: string })[])[0];
+        if (!route || route.driverId !== driverId) throw new Error("This order is not available for the selected driver.");
+      }
+      if (order.status === "COMPLETED") throw new Error("Chat is closed because this order was delivered.");
+      await transaction.execute(
+        "INSERT INTO DriverMessage (id, driverId, orderId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, ?, 'ADMIN', ?, ?, ?, ?)",
+        [id, driverId, order.id, actorId, admins[0].fullName, body, createdAt],
+      );
+    });
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Message could not be sent." };
+  }
   return { ok: true as const, message: { id, senderType: "ADMIN" as const, senderName: admins[0].fullName, body, createdAt: createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) } };
 }
 

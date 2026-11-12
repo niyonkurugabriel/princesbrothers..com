@@ -290,6 +290,7 @@ CREATE TABLE `driver_monthly_stats` (
 CREATE TABLE `DriverMessage` (
     `id` VARCHAR(36) NOT NULL,
     `driverId` VARCHAR(36) NOT NULL,
+    `orderId` VARCHAR(36) NULL,
     `senderType` ENUM('ADMIN', 'DRIVER') NOT NULL,
     `senderId` VARCHAR(36) NULL,
     `senderName` VARCHAR(150) NOT NULL,
@@ -297,6 +298,7 @@ CREATE TABLE `DriverMessage` (
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
     INDEX `DriverMessage_driverId_createdAt_idx`(`driverId`, `createdAt`),
+    INDEX `DriverMessage_driverId_orderId_createdAt_idx`(`driverId`, `orderId`, `createdAt`),
     PRIMARY KEY (`id`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
@@ -529,6 +531,7 @@ ALTER TABLE `CartItem` ADD CONSTRAINT `CartItem_productId_fkey` FOREIGN KEY (`pr
 ALTER TABLE `Category` ADD CONSTRAINT `Category_parentId_fkey` FOREIGN KEY (`parentId`) REFERENCES `Category`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
 ALTER TABLE `driver_monthly_stats` ADD CONSTRAINT `driver_monthly_stats_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 ALTER TABLE `DriverMessage` ADD CONSTRAINT `DriverMessage_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE `DriverMessage` ADD CONSTRAINT `DriverMessage_orderId_fkey` FOREIGN KEY (`orderId`) REFERENCES `Order`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `ProductCategory` ADD CONSTRAINT `ProductCategory_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

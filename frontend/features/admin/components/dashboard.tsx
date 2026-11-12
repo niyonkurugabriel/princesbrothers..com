@@ -807,15 +807,15 @@ function Orders({ orders, drivers, pendingActions, onProcess, onApprovePayment, 
           </select>
           {!candidates.length && <small>No registered drivers match this search.</small>}
         </div>
-        {selectedDriver && <DriverDetails driver={selectedDriver} canAssign={selected.status === "Ready for pickup" && selectedDriver.status === "ACTIVE" && selectedDriverServesLocation} assignmentMessage={selected.status === "Ready for pickup" && selectedDriver.status !== "ACTIVE" ? "This driver is not active and cannot be assigned." : selected.status === "Ready for pickup" && !selectedDriverServesLocation ? "This driver does not serve the billing location." : ""} assigning={pendingActions[selected.id] === "assign"} onAssign={() => onAssignDriver(selected.id, selectedDriver.id)} />}
+        {selectedDriver && <DriverDetails driver={selectedDriver} orderNumber={selected.id} isOrderDelivered={false} canAssign={selected.status === "Ready for pickup" && selectedDriver.status === "ACTIVE" && selectedDriverServesLocation} assignmentMessage={selected.status === "Ready for pickup" && selectedDriver.status !== "ACTIVE" ? "This driver is not active and cannot be assigned." : selected.status === "Ready for pickup" && !selectedDriverServesLocation ? "This driver does not serve the billing location." : ""} assigning={pendingActions[selected.id] === "assign"} onAssign={() => onAssignDriver(selected.id, selectedDriver.id)} />}
       </>}
-      {selectedDriver && selected.status !== "Ready for pickup" && <DriverDetails driver={selectedDriver} canAssign={false} assignmentMessage="" assigning={false} onAssign={() => undefined} />}
+      {selectedDriver && selected.status !== "Ready for pickup" && <DriverDetails driver={selectedDriver} orderNumber={selected.id} isOrderDelivered={selected.status === "Completed"} canAssign={false} assignmentMessage="" assigning={false} onAssign={() => undefined} />}
       {canAdvance[selected.status] && <button className="admin-primary-button" type="button" disabled={Boolean(pendingActions[selected.id])} onClick={() => onProcess(selected.id)}>{pendingActions[selected.id] === "advance" ? "Updating…" : selected.status === "Paid - ready to process" ? "Process order" : "Advance fulfillment"} <span>→</span></button>}
     </div></div>}
   </>;
 }
 
-function DriverDetails({ driver, canAssign, assignmentMessage, assigning, onAssign }: { driver: AdminDriver; canAssign: boolean; assignmentMessage: string; assigning: boolean; onAssign: () => void }) {
+function DriverDetails({ driver, orderNumber, isOrderDelivered, canAssign, assignmentMessage, assigning, onAssign }: { driver: AdminDriver; orderNumber: string; isOrderDelivered: boolean; canAssign: boolean; assignmentMessage: string; assigning: boolean; onAssign: () => void }) {
   const [copyMessage, setCopyMessage] = useState("");
 
   async function copyPhone() {
@@ -844,7 +844,7 @@ function DriverDetails({ driver, canAssign, assignmentMessage, assigning, onAssi
     <div className="driver-recent-deliveries"><h4>Recent deliveries</h4>{driver.recentDeliveries.length ? <ul>{driver.recentDeliveries.map((delivery) => <li key={`${delivery.orderNumber}-${delivery.completedAt}`}><span>{delivery.orderNumber} · {delivery.status.replace(/_/g, " ")}</span><small>{delivery.completedAt}</small></li>)}</ul> : <p className="modal-muted">No deliveries recorded yet.</p>}</div>
     {assignmentMessage && <p className="form-error" role="status">{assignmentMessage}</p>}
     {canAssign && <button className="admin-primary-button" type="button" disabled={assigning} onClick={onAssign}>{assigning ? "Assigning driver…" : "Assign driver to order"} <span>→</span></button>}
-    <DriverChat audience="admin" driverId={driver.id} />
+    <DriverChat audience="admin" driverId={driver.id} orderNumber={orderNumber} isOrderDelivered={isOrderDelivered} />
   </section>;
 }
 

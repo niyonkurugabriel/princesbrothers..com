@@ -1,5 +1,6 @@
 import { query } from "@princess-brothers/db";
 import { getDriverDriveCountForMonth, resetDriverDriveCountForCurrentMonth } from "@/features/driver/server/monthly-stats";
+import type { DriverDeliveryStatus } from "@/features/driver/server/delivery-workflow";
 import type { RowDataPacket } from "mysql2/promise";
 
 export type DriverStop = {
@@ -8,14 +9,14 @@ export type DriverStop = {
   address: string;
   recipient: string;
   phone: string;
-  status: "PICKED_UP" | "IN_TRANSIT" | "DELIVERED";
+  status: "AWAITING_PICKUP" | DriverDeliveryStatus;
   codAmount: number;
   deliveryWindow: string;
 };
 
 type DriverStopRow = RowDataPacket & {
   id: string; orderNumber: string; line1: string | null; city: string | null; state: string | null;
-  postalCode: string | null; recipient: string | null; phone: string | null; status: DriverStop["status"];
+  postalCode: string | null; recipient: string | null; phone: string | null; status: DriverDeliveryStatus | null;
 };
 
 export type DriverPayoutAccount = {
@@ -67,14 +68,14 @@ export async function getDriverProfile(userId: string): Promise<DriverProfile> {
 export async function getDriverStops(driverId?: string): Promise<DriverStop[]> {
   if (!process.env.DATABASE_URL || !driverId) return [];
 
-  const rows = await query<DriverStopRow>("SELECT o.id, o.orderNumber, a.line1, a.city, a.state, a.postalCode, a.recipient, a.phone, COALESCE(o.deliveryStatus, dr.status) AS status FROM DeliveryRoute dr JOIN Driver d ON d.id = dr.driverId JOIN `Order` o ON o.routeId = dr.id LEFT JOIN Address a ON a.id = o.shippingAddressId WHERE d.userId = ? AND dr.routeDate = CURRENT_DATE ORDER BY dr.createdAt ASC", [driverId]);
+  const rows = await query<DriverStopRow>("SELECT o.id, o.orderNumber, a.line1, a.city, a.state, a.postalCode, a.recipient, a.phone, o.deliveryStatus AS status FROM DeliveryRoute dr JOIN Driver d ON d.id = dr.driverId JOIN `Order` o ON o.routeId = dr.id LEFT JOIN Address a ON a.id = o.shippingAddressId WHERE d.userId = ? AND dr.routeDate = CURRENT_DATE ORDER BY dr.createdAt ASC", [driverId]);
   return rows.map((order) => ({
     id: order.id,
     orderNumber: order.orderNumber,
     address: [order.line1, order.city, order.state, order.postalCode].filter(Boolean).join(", ") || "Address unavailable",
     recipient: order.recipient ?? "Recipient unavailable",
     phone: order.phone ?? "",
-    status: order.status,
+    status: order.status ?? "AWAITING_PICKUP",
     codAmount: 0,
     deliveryWindow: "Today"
   }));
