@@ -62,4 +62,14 @@
 - **Deployment/manual steps:** Apply the migration before deploy. Monthly reset is lazy on driver/admin reads; there is no cron service to configure.
 - **Verification:** Web typecheck passed; monthly-count and prior catalog regressions passed (13/13); migration syntax and `git diff --check` passed. No MySQL-backed delivery transaction was run because no isolated database was available.
 
-Phases 7–10 have not been implemented yet.
+## Phase 7 — Asynchronous order processing
+
+- **Problem/root cause:** The admin order handlers called `window.location.reload()` after advancing order status, approving payment, or assigning a driver, discarding the entire dashboard state and forcing a full navigation.
+- **Changes:** Replaced those reloads with optimistic updates to the affected order in local state. Orders move between kanban columns immediately; payment state and driver assignment update in place. Failures and thrown requests roll back the previous row and show actionable toasts. Per-order pending state disables conflicting controls and displays button/loading text. The selected order is derived from the updated collection so its modal reflects the optimistic change. Removed unnecessary admin dashboard revalidation from these actions; customer order pages and the driver portal are still revalidated where needed. Changed files: `frontend/features/admin/components/dashboard.tsx`, `frontend/app/(admin)/actions.ts`.
+- **Migration:** None.
+- **Environment:** None.
+- **Test:** `npm run typecheck --workspace=@princess-brothers/web`; verify successful and failed status/payment/assignment operations in a browser, including rollback and no document navigation.
+- **Deployment/manual steps:** Deploy the web app. Browser request/navigation observation was unavailable here.
+- **Verification:** Web typecheck passed and focused regressions passed (11/11). Targeted lint on the dashboard still reports pre-existing `no-unused-vars` errors in the file (including unused imports/props elsewhere); no unrelated lint cleanup was made. No browser/API execution was possible without an isolated database and browser session.
+
+Phases 8–10 have not been implemented yet.

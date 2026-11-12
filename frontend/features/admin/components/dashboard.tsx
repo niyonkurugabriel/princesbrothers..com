@@ -40,6 +40,13 @@ type DashboardData = {
 };
 
 const orderColumns: AdminOrder["status"][] = ["Pending payment", "Paid - ready to process", "Processing", "Ready for pickup", "Out for delivery", "Completed", "Cancelled", "Refunded"];
+const orderStatusLabels: Record<string, AdminOrder["status"]> = { PAID: "Paid - ready to process", PROCESSING: "Processing", READY_FOR_PICKUP: "Ready for pickup", OUT_FOR_DELIVERY: "Out for delivery", COMPLETED: "Completed" };
+const orderStatusTransitions: Partial<Record<AdminOrder["status"], AdminOrder["status"]>> = {
+  "Paid - ready to process": "Processing",
+  Processing: "Ready for pickup",
+  "Ready for pickup": "Out for delivery",
+  "Out for delivery": "Completed"
+};
 
 export function AdminDashboard({ data }: { data: DashboardData }) {
   const router = useRouter();
@@ -52,6 +59,22 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
   const [adminUsers, setAdminUsers] = useState(data.adminUsers);
   const [roles, setRoles] = useState(data.roles);
   const [momoPaymentCode, setMomoPaymentCode] = useState(data.momoPaymentCode);
+  const [orders, setOrders] = useState(data.orders);
+  const [pendingOrderActions, setPendingOrderActions] = useState<Record<string, "advance" | "approve" | "assign">>({});
+
+  function showToast(message: string) {
+    setToast(message);
+    window.setTimeout(() => setToast(""), 3200);
+  }
+
+  function setOrderPending(orderNumber: string, action?: "advance" | "approve" | "assign") {
+    setPendingOrderActions((current) => {
+      const next = { ...current };
+      if (action) next[orderNumber] = action;
+      else delete next[orderNumber];
+      return next;
+    });
+  }
 
   async function audit(action: string, entity: string, id: string) {
     const result = await mutateAdmin(action, entity, id);
@@ -77,24 +100,73 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
   const [selectedPartnerMessage, setSelectedPartnerMessage] = useState("");
 
   async function processOrder(orderNumber: string) {
-    const result = await advanceAdminOrder(orderNumber);
-    setToast(result.ok ? `Order advanced to ${result.status?.replaceAll("_", " ").toLowerCase()}` : result.error ?? "Order could not be processed");
-    if (result.ok) window.location.reload();
-    window.setTimeout(() => setToast(""), 3200);
+    const previous = orders.find((order) => order.id === orderNumber);
+    const nextStatus = previous && orderStatusTransitions[previous.status];
+    if (!previous || !nextStatus) return;
+    setOrderPending(orderNumber, "advance");
+    setOrders((current) => current.map((order) => order.id === orderNumber ? { ...order, status: nextStatus } : order));
+    try {
+      const result = await advanceAdminOrder(orderNumber);
+      if (!result.ok) {
+        setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+        showToast(result.error ?? "Order could not be processed.");
+        return;
+      }
+      const confirmedStatus = (result.status ? orderStatusLabels[result.status] : undefined) ?? nextStatus;
+      setOrders((current) => current.map((order) => order.id === orderNumber ? { ...order, status: confirmedStatus } : order));
+      showToast(`Order advanced to ${confirmedStatus.toLowerCase()}.`);
+    } catch (error) {
+      console.error("Order could not be processed.", error);
+      setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+      showToast("Order could not be processed. Check the connection and try again.");
+    } finally {
+      setOrderPending(orderNumber);
+    }
   }
 
   async function approvePayment(orderNumber: string) {
-    const result = await approveAdminPayment(orderNumber);
-    setToast(result.ok ? result.invoiceSent === false ? result.error ?? "Payment approved, but invoice email failed" : `Payment for ${orderNumber} approved and invoice emailed` : result.error ?? "Payment could not be approved");
-    if (result.ok) window.location.reload();
-    window.setTimeout(() => setToast(""), 3200);
+    const previous = orders.find((order) => order.id === orderNumber);
+    if (!previous) return;
+    setOrderPending(orderNumber, "approve");
+    setOrders((current) => current.map((order) => order.id === orderNumber ? { ...order, paymentStatus: "PAID", status: "Paid - ready to process" } : order));
+    try {
+      const result = await approveAdminPayment(orderNumber);
+      if (!result.ok) {
+        setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+        showToast(result.error ?? "Payment could not be approved.");
+        return;
+      }
+      showToast(result.invoiceSent === false ? result.error ?? "Payment approved, but invoice email failed." : `Payment for ${orderNumber} approved.`);
+    } catch (error) {
+      console.error("Payment could not be approved.", error);
+      setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+      showToast("Payment could not be approved. Check the connection and try again.");
+    } finally {
+      setOrderPending(orderNumber);
+    }
   }
 
   async function assignDriver(orderNumber: string, driverId: string) {
-    const result = await assignAdminDriver(orderNumber, driverId);
-    setToast(result.ok ? `Driver assigned to ${orderNumber}` : result.error ?? "Driver could not be assigned");
-    if (result.ok) window.location.reload();
-    window.setTimeout(() => setToast(""), 3200);
+    const previous = orders.find((order) => order.id === orderNumber);
+    const driver = data.drivers.find((item) => item.id === driverId);
+    if (!previous || !driver) return;
+    setOrderPending(orderNumber, "assign");
+    setOrders((current) => current.map((order) => order.id === orderNumber ? { ...order, driver: driver.name, driverId: driver.id, status: "Out for delivery" } : order));
+    try {
+      const result = await assignAdminDriver(orderNumber, driverId);
+      if (!result.ok) {
+        setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+        showToast(result.error ?? "Driver could not be assigned.");
+        return;
+      }
+      showToast(`Driver assigned to ${orderNumber}.`);
+    } catch (error) {
+      console.error("Driver could not be assigned.", error);
+      setOrders((current) => current.map((order) => order.id === orderNumber ? previous : order));
+      showToast("Driver could not be assigned. Check the connection and try again.");
+    } finally {
+      setOrderPending(orderNumber);
+    }
   }
 
   async function savePaymentCode() {
@@ -213,7 +285,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
     <main className="admin-main"><header className="admin-topbar"><button className="admin-mobile-menu" type="button" aria-label="Open admin navigation">☰</button><div><span className="admin-breadcrumb">Admin / </span><b>{section}</b></div><div className="admin-top-actions"><span className="admin-live"><i /> All systems operational</span><ThemeToggle /><button type="button">◎</button></div></header>{toast && <div className="admin-toast">{toast}</div>}<div className="admin-content">
       {section === "Overview" && <Overview data={data} onSection={setSection} />}
       {section === "Catalog & inventory" && <Catalog products={data.products} categories={data.categories} availableTags={data.availableTags} onToast={(message) => { setToast(message); window.setTimeout(() => setToast(""), 3200); }} />}
-      {section === "Orders & fulfillment" && <Orders orders={data.orders} drivers={data.drivers} onProcess={processOrder} onApprovePayment={approvePayment} onAssignDriver={assignDriver} />}
+      {section === "Orders & fulfillment" && <Orders orders={orders} drivers={data.drivers} pendingActions={pendingOrderActions} onProcess={processOrder} onApprovePayment={approvePayment} onAssignDriver={assignDriver} />}
       {section === "Partners" && <Partners partners={partners} tab={partnerTab} setTab={setPartnerTab} onSelect={setSelectedPartner} />}
       {section === "Payment settings" && <PaymentSettings code={momoPaymentCode} canEdit={data.isSuperAdmin} onChange={setMomoPaymentCode} onSave={savePaymentCode} />}
       {section === "My settings" && <AdminProfileSettings profile={data.currentAdmin} onSave={saveOwnProfile} />}
@@ -696,9 +768,10 @@ function ProductEditor({ product, categories, availableTags, onClose, onSaved }:
   </form></div>;
 }
 
-function Orders({ orders, drivers, onProcess, onApprovePayment, onAssignDriver }: { orders: AdminOrder[]; drivers: AdminDriver[]; onProcess: (orderNumber: string) => void; onApprovePayment: (orderNumber: string) => void; onAssignDriver: (orderNumber: string, driverId: string) => void }) {
-  const [selected, setSelected] = useState<AdminOrder | null>(null);
+function Orders({ orders, drivers, pendingActions, onProcess, onApprovePayment, onAssignDriver }: { orders: AdminOrder[]; drivers: AdminDriver[]; pendingActions: Record<string, "advance" | "approve" | "assign">; onProcess: (orderNumber: string) => void; onApprovePayment: (orderNumber: string) => void; onAssignDriver: (orderNumber: string, driverId: string) => void }) {
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [driverSearch, setDriverSearch] = useState("");
+  const selected = orders.find((order) => order.id === selectedOrderId) ?? null;
   const canAdvance: Record<AdminOrder["status"], boolean> = { "Pending payment": false, "Paid - ready to process": true, Processing: true, "Ready for pickup": false, "Out for delivery": true, Completed: false, Cancelled: false, Refunded: false };
   const candidates = selected ? drivers
     .filter((driver) => `${driver.name} ${driver.phone} ${driver.locations.join(" ")}`.toLocaleLowerCase().includes(driverSearch.trim().toLocaleLowerCase()))
@@ -710,8 +783,21 @@ function Orders({ orders, drivers, onProcess, onApprovePayment, onAssignDriver }
     }) : [];
   return <>
     <PageHeading eyebrow="Operations / fulfillment" title={<>Orders in <em>motion.</em></>} copy="Live orders from the database. Open an order to advance its fulfillment state." />
-    <div className="order-pipeline">{orderColumns.map((column) => <section className="pipeline-column" key={column}><header><span>{column}</span><b>{orders.filter((order) => order.status === column).length}</b></header>{orders.filter((order) => order.status === column).map((order) => <button className="order-card" key={order.id} type="button" onClick={() => { setSelected(order); setDriverSearch(order.billingLocation); }}><div><b>{order.id}</b><span>{order.placed}</span></div><strong>{formatLocalAmount(order.total, "RWF")}</strong><p>{order.customer}</p><small>{order.driver}</small></button>)}</section>)}</div>
-    {selected && <div className="admin-modal-backdrop"><div className="admin-modal order-modal"><button className="modal-close" type="button" onClick={() => setSelected(null)}>×</button><p className="admin-eyebrow">Order {selected.id}</p><h2>{selected.customer}</h2><p className="modal-muted">Current status: {selected.status}</p><p>Total: {formatLocalAmount(selected.total, "RWF")} · Driver: {selected.driver}</p><p className="modal-muted">Buyer billing location: <strong>{selected.billingLocation}</strong></p><p className="modal-muted">Payment: {selected.paymentStatus ?? "Not recorded"} · {selected.paymentMethod ?? "Unknown method"}</p>{selected.paymentReference && <p className="modal-muted">Transaction reference: {selected.paymentReference}</p>}{selected.paymentStatus === "PENDING_APPROVAL" && <button className="admin-primary-button" type="button" onClick={() => onApprovePayment(selected.id)}>Approve manual payment <span>✓</span></button>}{selected.status === "Pending payment" && selected.paymentStatus !== "PENDING_APPROVAL" && <p className="modal-muted">Payment must be completed before fulfillment can begin.</p>}{selected.status === "Ready for pickup" && <div className="admin-role-field"><label htmlFor="driver-search">Search drivers by billing location</label><input id="driver-search" value={driverSearch} onChange={(event) => setDriverSearch(event.target.value)} placeholder="Search location, driver, or phone" /><select defaultValue="" onChange={(event) => { if (event.target.value) onAssignDriver(selected.id, event.target.value); }}><option value="" disabled>Select a driver{candidates.length ? "" : " (no matches)"}</option>{candidates.map((driver) => { const area = selected.billingLocation.toLocaleLowerCase(); const matched = driver.locations.some((location) => area === location.toLocaleLowerCase() || area.startsWith(`${location.toLocaleLowerCase()},`)); return <option key={driver.id} value={driver.id}>{matched ? "Location match · " : ""}{driver.name} · {driver.phone} · {driver.driveCount} this month · {driver.locations.join(", ") || "No service locations"}</option>; })}</select>{!candidates.length && <small>No drivers match this search. Change the search or update driver service locations.</small>}</div>}<button className="admin-primary-button" type="button" disabled={!canAdvance[selected.status]} onClick={() => onProcess(selected.id)}>{selected.status === "Paid - ready to process" ? "Process order" : "Advance fulfillment"} <span>→</span></button></div></div>}
+    <div className="order-pipeline">{orderColumns.map((column) => <section className="pipeline-column" key={column}><header><span>{column}</span><b>{orders.filter((order) => order.status === column).length}</b></header>{orders.filter((order) => order.status === column).map((order) => <button className="order-card" key={order.id} type="button" onClick={() => { setSelectedOrderId(order.id); setDriverSearch(order.billingLocation); }}><div><b>{order.id}</b><span>{order.placed}</span></div><strong>{formatLocalAmount(order.total, "RWF")}</strong><p>{order.customer}</p><small>{order.driver}</small></button>)}</section>)}</div>
+    {selected && <div className="admin-modal-backdrop"><div className="admin-modal order-modal">
+      <button className="modal-close" type="button" onClick={() => setSelectedOrderId(null)}>×</button>
+      <p className="admin-eyebrow">Order {selected.id}</p><h2>{selected.customer}</h2>
+      <p className="modal-muted">Current status: {selected.status}</p>
+      <p>Total: {formatLocalAmount(selected.total, "RWF")} · Driver: {selected.driver}</p>
+      <p className="modal-muted">Buyer billing location: <strong>{selected.billingLocation}</strong></p>
+      <p className="modal-muted">Payment: {selected.paymentStatus ?? "Not recorded"} · {selected.paymentMethod ?? "Unknown method"}</p>
+      {selected.paymentReference && <p className="modal-muted">Transaction reference: {selected.paymentReference}</p>}
+      {pendingActions[selected.id] && <p className="accountant-message" role="status">{pendingActions[selected.id] === "approve" ? "Approving payment…" : pendingActions[selected.id] === "assign" ? "Assigning driver…" : "Updating order…"}</p>}
+      {selected.paymentStatus === "PENDING_APPROVAL" && <button className="admin-primary-button" type="button" disabled={Boolean(pendingActions[selected.id])} onClick={() => onApprovePayment(selected.id)}>{pendingActions[selected.id] === "approve" ? "Approving…" : "Approve manual payment"} <span>✓</span></button>}
+      {selected.status === "Pending payment" && selected.paymentStatus !== "PENDING_APPROVAL" && <p className="modal-muted">Payment must be completed before fulfillment can begin.</p>}
+      {selected.status === "Ready for pickup" && <div className="admin-role-field"><label htmlFor="driver-search">Search drivers by billing location</label><input id="driver-search" value={driverSearch} onChange={(event) => setDriverSearch(event.target.value)} placeholder="Search location, driver, or phone" disabled={Boolean(pendingActions[selected.id])} /><select defaultValue="" disabled={Boolean(pendingActions[selected.id])} onChange={(event) => { if (event.target.value) onAssignDriver(selected.id, event.target.value); }}><option value="" disabled>Select a driver{candidates.length ? "" : " (no matches)"}</option>{candidates.map((driver) => { const area = selected.billingLocation.toLocaleLowerCase(); const matched = driver.locations.some((location) => area === location.toLocaleLowerCase() || area.startsWith(`${location.toLocaleLowerCase()},`)); return <option key={driver.id} value={driver.id}>{matched ? "Location match · " : ""}{driver.name} · {driver.phone} · {driver.driveCount} this month · {driver.locations.join(", ") || "No service locations"}</option>; })}</select>{!candidates.length && <small>No drivers match this search. Change the search or update driver service locations.</small>}</div>}
+      {canAdvance[selected.status] && <button className="admin-primary-button" type="button" disabled={Boolean(pendingActions[selected.id])} onClick={() => onProcess(selected.id)}>{pendingActions[selected.id] === "advance" ? "Updating…" : selected.status === "Paid - ready to process" ? "Process order" : "Advance fulfillment"} <span>→</span></button>}
+    </div></div>}
   </>;
 }
 

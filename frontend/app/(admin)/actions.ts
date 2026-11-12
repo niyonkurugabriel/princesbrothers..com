@@ -331,7 +331,6 @@ export async function advanceAdminOrder(orderNumber: string) {
   const result = await execute("UPDATE `Order` SET status = ?, updatedAt = ? WHERE id = ? AND status = ?", [next, new Date(), order.id, order.status]);
   if (result.affectedRows !== 1) return { ok: false, error: "The order changed while you were viewing it. Refresh and try again." };
   try { await logAuditEvent({ actorId, action: "Advanced order fulfillment", entityType: "Order", entityId: order.id, metadata: { orderNumber, from: order.status, to: next } }); } catch (error) { console.error("Order advanced, but audit logging failed.", error); }
-  revalidatePath("/admin/dashboard");
   revalidatePath(`/orders/${orderNumber}`);
   return { ok: true, status: next };
 }
@@ -537,7 +536,6 @@ export async function approveAdminPayment(orderNumber: string): Promise<{ ok: bo
   if (!payment) return { ok: false, error: "Payment was not found for this order." };
   const result = await approvePayment(payment.id, actorId);
   if (result.ok) {
-    revalidatePath("/admin/dashboard");
     revalidatePath(`/orders/${orderNumber}`);
   }
   return { ...result, error: result.invoiceSent === false ? "Payment approved, but invoice email delivery failed. Check the audit trail and email configuration." : result.error };
@@ -568,7 +566,7 @@ export async function assignAdminDriver(orderNumber: string, driverId: string) {
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "The driver assignment could not be saved." };
   }
-  revalidatePath("/admin/dashboard");
+  revalidatePath("/driver");
   return { ok: true };
 }
 
