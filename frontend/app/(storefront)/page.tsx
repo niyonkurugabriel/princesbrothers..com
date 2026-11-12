@@ -49,8 +49,13 @@ export default async function StorefrontPage() {
         <div className="hero-caption">Fresh from the harvest <span>Picked with care</span></div>
       </section>
 
+      <section className="featured-section content-width">
+        <div className="section-heading"><div><div className="section-kicker">01 — In season now</div><h2>Good things to <em>eat.</em></h2></div><Link className="text-link desktop-only" href="/products">View all produce <span aria-hidden="true">→</span></Link></div>
+        <div className="product-grid row g-4">{featured.map((product) => <ProductCard product={product} priority key={product.id} />)}</div>
+      </section>
+
       <section className="intro-section content-width" id="story">
-        <div className="section-kicker">01 — From soil to table</div>
+        <div className="section-kicker">02 — From soil to table</div>
         <div className="intro-content">
           <h2>Better food, closer to <em>home.</em></h2>
           <p>Princess & Brothers brings organic produce from independent contributors to your kitchen. We choose seasonal harvests, handle them with care and make good food easier to bring to the table.</p>
@@ -59,7 +64,7 @@ export default async function StorefrontPage() {
       </section>
 
       <section className="mission-section content-width" id="mission">
-        <div className="section-kicker">02 — Our mission and vision</div>
+        <div className="section-kicker">03 — Our mission and vision</div>
         <div className="mission-heading">
           <h2>From trusted sources to markets worldwide.</h2>
           <p>We connect the people who grow and make food with the people and markets that need it.</p>
@@ -84,15 +89,10 @@ export default async function StorefrontPage() {
       </section>
 
       <section className="category-section content-width">
-        <div className="section-heading"><div><div className="section-kicker">03 — Browse the harvest</div><h2>Fresh from the <em>farm.</em></h2></div><Link className="text-link desktop-only" href="/products">Shop all produce <span aria-hidden="true">→</span></Link></div>
+        <div className="section-heading"><div><div className="section-kicker">04 — Browse the harvest</div><h2>Fresh from the <em>farm.</em></h2></div><Link className="text-link desktop-only" href="/products">Shop all produce <span aria-hidden="true">→</span></Link></div>
         <div className="category-grid">
           {categories.map((category) => <Link href={`/products?category=${category.id}`} className={`category-card${category.name.toLowerCase() === "beans & peas" ? " category-card--peas" : ""}`} key={category.id}><div className="category-image" style={{ backgroundImage: `url(${category.image})` }} /><div className="category-overlay"><span>{category.name}</span><small>{category.description}</small></div></Link>)}
         </div>
-      </section>
-
-      <section className="featured-section content-width">
-        <div className="section-heading"><div><div className="section-kicker">04 — In season now</div><h2>Good things to <em>eat.</em></h2></div><Link className="text-link desktop-only" href="/products">View all produce <span aria-hidden="true">→</span></Link></div>
-        <div className="product-grid row g-4">{featured.map((product) => <ProductCard product={product} priority key={product.id} />)}</div>
       </section>
 
       <section className="contributor-section" id="contributors">

@@ -22,4 +22,14 @@
 - **Deployment/manual steps:** Deploy the web assets. No standalone customer/driver management table was added because those panels do not currently exist.
 - **Verification:** Web typecheck passed; the Phase 1 archive tests still pass (3/3); `git diff --check` and targeted ESLint on new helpers/accountant table passed. Full workspace lint remains blocked by pre-existing `no-unused-vars` failures in SmoothUI and existing dashboard code. No browser viewport or console smoke test was possible in the available environment.
 
-Phases 3–10 have not been implemented yet.
+## Phase 3 — Demand-sorted storefront products
+
+- **Problem/root cause:** The homepage placed featured products after the intro, mission, and category sections, while storefront product retrieval sorted alphabetically and did not use order activity.
+- **Changes:** Moved featured products immediately below `.organic-section-3d`. Added a cached MySQL aggregate for qualifying order-item units in the last 30 days, counting the last 7 days twice, and stable server-side ordering by demand score then product creation time (newest first). Pending-payment, canceled, and refunded orders do not count as demand. Cache remains 30 seconds with the existing `catalog` tag. Changed files: `frontend/app/(storefront)/page.tsx`, `frontend/features/storefront/server/data.ts`, `frontend/features/storefront/server/demand.ts`, `frontend/features/storefront/server/demand.test.ts`.
+- **Migration:** None.
+- **Environment:** None.
+- **Test:** `npm test -- --run frontend/features/storefront/server/demand.test.ts`; verify homepage order after seeded/real orders and verify ties with no demand are newest-first.
+- **Deployment/manual steps:** Deploy web code. The demand aggregate uses existing order and order-item data; no scheduled task is required.
+- **Verification:** Demand and archive tests passed (5/5), web typecheck passed, and `git diff --check` passed. No database or browser test was run.
+
+Phases 4–10 have not been implemented yet.
