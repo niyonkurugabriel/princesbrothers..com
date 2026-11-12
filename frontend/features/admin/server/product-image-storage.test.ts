@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isValidProductImageReference } from "@/features/admin/server/product-image-storage";
+import { isValidDriverPhotoReference, isValidProductImageReference } from "@/features/admin/server/product-image-storage";
 
 const originalPublicBaseUrl = process.env.PRODUCT_IMAGE_PUBLIC_BASE_URL;
 
@@ -21,5 +21,11 @@ describe("product image references", () => {
     expect(isValidProductImageReference("https://images.example.com/store/profiles/123e4567-e89b-12d3-a456-426614174000.webp")).toBe(false);
     expect(isValidProductImageReference("https://images.example.com/store/products/123e4567-e89b-12d3-a456-426614174000.webp?download=1")).toBe(false);
     expect(isValidProductImageReference("http://[")).toBe(false);
+  });
+
+  it("allows only driver photo objects on the configured public host", () => {
+    process.env.PRODUCT_IMAGE_PUBLIC_BASE_URL = "https://images.example.com";
+    expect(isValidDriverPhotoReference("https://images.example.com/drivers/123e4567-e89b-12d3-a456-426614174000.jpg")).toBe(true);
+    expect(isValidDriverPhotoReference("https://images.example.com/products/123e4567-e89b-12d3-a456-426614174000.jpg")).toBe(false);
   });
 });

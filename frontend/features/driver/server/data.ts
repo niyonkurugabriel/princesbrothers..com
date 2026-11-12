@@ -29,6 +29,7 @@ export type DriverProfile = {
   name: string;
   phone: string;
   vehicleInfo: string;
+  photoUrl: string;
   driveCount: number;
   locations: string[];
   payoutAccounts: DriverPayoutAccount[];
@@ -36,8 +37,8 @@ export type DriverProfile = {
 
 export async function getDriverProfile(userId: string): Promise<DriverProfile> {
   await resetDriverDriveCountForCurrentMonth(userId);
-  const driverRows = await query<RowDataPacket & { id: string; firstName: string; lastName: string; phone: string | null; vehicleInfo: string | null; driveCount: number | string; driveCountMonth: string | null; currentMonth: string }>(
-    "SELECT d.id, u.firstName, u.lastName, u.phone, d.vehicleInfo, d.driveCount, DATE_FORMAT(d.driveCountMonth, '%Y-%m-%d') AS driveCountMonth, DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS currentMonth FROM Driver d JOIN `User` u ON u.id = d.userId WHERE d.userId = ? LIMIT 1",
+  const driverRows = await query<RowDataPacket & { id: string; firstName: string; lastName: string; phone: string | null; vehicleInfo: string | null; photoUrl: string | null; driveCount: number | string; driveCountMonth: string | null; currentMonth: string }>(
+    "SELECT d.id, u.firstName, u.lastName, u.phone, d.vehicleInfo, d.photoUrl, d.driveCount, DATE_FORMAT(d.driveCountMonth, '%Y-%m-%d') AS driveCountMonth, DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS currentMonth FROM Driver d JOIN `User` u ON u.id = d.userId WHERE d.userId = ? LIMIT 1",
     [userId],
   );
   const driver = driverRows[0];
@@ -56,6 +57,7 @@ export async function getDriverProfile(userId: string): Promise<DriverProfile> {
     name: `${driver.firstName} ${driver.lastName}`.trim(),
     phone: driver.phone ?? "",
     vehicleInfo: driver.vehicleInfo ?? "",
+    photoUrl: driver.photoUrl ?? "",
     driveCount: getDriverDriveCountForMonth(driver.driveCount, driver.driveCountMonth, driver.currentMonth),
     locations: locationRows.map((row) => row.locationName),
     payoutAccounts,

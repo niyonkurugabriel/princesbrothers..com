@@ -20,7 +20,7 @@ Set the following variables in your deployment environment, secret manager, or V
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`: Google OAuth login.
 - `EMAIL_PROVIDER` and `EMAIL_FROM`: authentication and password-reset email delivery. For a local Postfix relay, set `EMAIL_PROVIDER=smtp`, `EMAIL_SERVER_HOST=127.0.0.1`, and `EMAIL_SERVER_PORT=25`; set both SMTP auth variables to `none` when the relay does not require authentication. For Resend, SendGrid, or Postmark, use the matching API token and verify the sender domain used by `EMAIL_FROM`.
 - `SENTRY_DSN`: Optional monitoring and error reporting endpoint.
-- `PRODUCT_IMAGE_S3_BUCKET`, `PRODUCT_IMAGE_S3_REGION`, `PRODUCT_IMAGE_S3_ACCESS_KEY_ID`, `PRODUCT_IMAGE_S3_SECRET_ACCESS_KEY`, and `PRODUCT_IMAGE_PUBLIC_BASE_URL`: Required for product-image uploads. `PRODUCT_IMAGE_S3_ENDPOINT` is optional for AWS S3 and required for S3-compatible services such as Cloudflare R2. The public base URL must serve the bucket's `products/` prefix over HTTPS.
+- `PRODUCT_IMAGE_S3_BUCKET`, `PRODUCT_IMAGE_S3_REGION`, `PRODUCT_IMAGE_S3_ACCESS_KEY_ID`, `PRODUCT_IMAGE_S3_SECRET_ACCESS_KEY`, and `PRODUCT_IMAGE_PUBLIC_BASE_URL`: Required for product and driver profile image uploads. `PRODUCT_IMAGE_S3_ENDPOINT` is optional for AWS S3 and required for S3-compatible services such as Cloudflare R2. The public base URL must serve the bucket's `products/` and `drivers/` prefixes over HTTPS.
 - `PRODUCT_IMAGE_UPLOAD_SOURCE_DIR`: Optional directory containing existing local `public/uploads/products` files when migrating them; defaults to `frontend/public/uploads/products` from the repository root.
 
 ## Recommended deployment layout
@@ -28,7 +28,7 @@ Set the following variables in your deployment environment, secret manager, or V
 - Web app: Next.js server deployment
 - Database and session store: managed MySQL 8 instance
 - Static assets: CDN or S3-backed delivery
-- Product uploads: an S3-compatible bucket with public read access limited to the `products/` prefix, served through a CDN/custom domain. Keep upload credentials server-side and restrict them to the required bucket operations.
+- Product and driver profile uploads: an S3-compatible bucket with public read access limited to the `products/` and `drivers/` prefixes, served through a CDN/custom domain. Keep upload credentials server-side and restrict them to the required bucket operations.
 - Private contributor chat attachments: persistent private storage mounted at `storage/contributor-chat` (not the public web directory)
 - Secrets: environment or secret manager, never committed to source control
 
@@ -40,8 +40,9 @@ Set the following variables in your deployment environment, secret manager, or V
 4. Set `APP_URL` to `https://www.princesbrothers.com` and use that single canonical origin for login redirects, canonical metadata, and the sitemap. The app permanently redirects the apex host to `www`.
 5. Keep the deployed `/robots.txt` in sync with `frontend/public/robots.txt`. The current production response is served by the web-server static root, so updating the Next.js source alone may not replace that copy.
 6. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
-7. Configure product-image storage and migrate existing local product images while their source files are still available. Run `npm run images:migrate` for a dry run, then `npm run images:migrate -- --apply`; resolve any reported missing files before removing the old release directory.
-8. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, product image uploads, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
+7. Configure product-image storage and migrate existing local product images while their source files are still available. Run `npm run images:migrate` for a dry run, then `npm run images:migrate -- --apply`; resolve any reported missing files before removing the old release directory. Driver photos use the same credentials and bucket under the `drivers/` prefix.
+8. Driver chat uses authenticated five-second polling and database message history; it does not require a separate WebSocket service. After deployment, verify an admin and a driver can exchange messages.
+9. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, product/driver image uploads, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
 
 ### Google OAuth redirect URI
 

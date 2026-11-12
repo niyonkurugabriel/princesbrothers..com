@@ -255,3 +255,179 @@
     animation: none;
   }
 }
+
+.driver-details-panel {
+  background: #f5f8f3;
+  border: 1px solid #dfe7dd;
+  border-radius: 14px;
+  margin: 16px 0;
+  padding: 18px;
+}
+
+.driver-details-heading {
+  align-items: center;
+  display: flex;
+  gap: 13px;
+}
+
+.driver-details-photo {
+  border-radius: 50%;
+  height: 58px;
+  object-fit: cover;
+  width: 58px;
+}
+
+.driver-details-heading h3,
+.driver-recent-deliveries h4 {
+  color: #203126;
+  font-size: 15px;
+  margin: 0;
+}
+
+.driver-details-heading p {
+  color: #68768b;
+  font-size: 10px;
+  margin: 5px 0 0;
+}
+
+.driver-details-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 18px 0;
+}
+
+.driver-details-grid div {
+  border-top: 1px solid #dfe7dd;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.driver-details-grid dt {
+  color: #8490a4;
+  font-size: 9px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.driver-details-grid dd {
+  color: #203126;
+  font-size: 11px;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+}
+
+.driver-contact-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-bottom: 8px;
+}
+
+.driver-recent-deliveries {
+  border-top: 1px solid #dfe7dd;
+  margin: 16px 0;
+  padding-top: 13px;
+}
+
+.driver-recent-deliveries ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.driver-recent-deliveries li {
+  align-items: center;
+  border-top: 1px solid #e6ece3;
+  display: flex;
+  font-size: 10px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.driver-recent-deliveries li small {
+  color: #8490a4;
+  font-size: 9px;
+}
+
+.driver-chat {
+  border-top: 1px solid #dfe7dd;
+  margin-top: 18px;
+  padding-top: 15px;
+}
+
+.driver-chat h3 {
+  font-size: 13px;
+  margin: 0 0 10px;
+}
+
+.driver-chat-history {
+  background: #fff;
+  border: 1px solid #e2e7df;
+  border-radius: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 10px;
+}
+
+.driver-chat-message {
+  background: #f1f4ef;
+  border-radius: 9px;
+  margin: 7px 0;
+  padding: 9px;
+}
+
+.driver-chat-message.mine {
+  background: #e6eefb;
+}
+
+.driver-chat-message small {
+  color: #758197;
+  font-size: 9px;
+}
+
+.driver-chat-message p {
+  color: #203126;
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 5px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.driver-chat form {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.driver-chat textarea {
+  background: #fff;
+  border: 1px solid #d7dfd4;
+  border-radius: 9px;
+  color: #203126;
+  padding: 9px;
+  resize: vertical;
+  width: 100%;
+}
+
+.driver-chat form .admin-primary-button {
+  justify-self: end;
+}
+
+.order-modal {
+  max-width: 860px;
+}
+
+@media (max-width: 650px) {
+  .driver-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-recent-deliveries li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

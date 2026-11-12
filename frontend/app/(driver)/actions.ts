@@ -3,13 +3,14 @@
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { query, withTransaction } from "@princess-brothers/db";
+import { execute, query, withTransaction } from "@princess-brothers/db";
 import { authCookie } from "@/features/auth/cookies";
 import { AUTH_COOKIE_NAME, defaultTtlFor } from "@/features/auth/config";
 import { createSession } from "@/features/auth/session";
 import { verifyActiveSession } from "@/features/auth/server";
 import { logAuditEvent } from "@/shared/server/audit";
 import { isFirstDriverDeliveryCompletion } from "@/features/driver/server/monthly-stats";
+import { isValidDriverPhotoReference } from "@/features/admin/server/product-image-storage";
 import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2/promise";
 
@@ -33,14 +34,51 @@ async function getCurrentDriver(): Promise<{ driver: DriverAccess; userId: strin
   return rows[0] ? { driver: rows[0], userId: claims.sub } : null;
 }
 
+export async function loadMyDriverMessages() {
+  const current = await getCurrentDriver();
+  if (!current) return { ok: false as const, error: "Sign in to view driver messages.", messages: [] };
+  const messages = await query<RowDataPacket & { id: string; senderType: "ADMIN" | "DRIVER"; senderName: string; body: string; createdAt: Date }>(
+    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
+    [current.driver.id],
+  );
+  return {
+    ok: true as const,
+    messages: messages.map((message) => ({
+      ...message,
+      createdAt: message.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    }))
+  };
+}
+
+export async function sendMyDriverMessage(bodyInput: string) {
+  const current = await getCurrentDriver();
+  if (!current) return { ok: false as const, error: "Sign in to reply to a message." };
+  const body = typeof bodyInput === "string" ? bodyInput.trim() : "";
+  if (!body || body.length > 2000) return { ok: false as const, error: "Enter a message up to 2,000 characters." };
+  const users = await query<RowDataPacket & { firstName: string; lastName: string }>(
+    "SELECT firstName, lastName FROM `User` WHERE id = ? LIMIT 1",
+    [current.userId],
+  );
+  const senderName = `${users[0]?.firstName ?? ""} ${users[0]?.lastName ?? ""}`.trim();
+  if (!senderName) return { ok: false as const, error: "Driver profile was not found." };
+  const id = randomUUID();
+  const createdAt = new Date();
+  await execute(
+    "INSERT INTO DriverMessage (id, driverId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, 'DRIVER', ?, ?, ?, ?)",
+    [id, current.driver.id, current.userId, senderName, body, createdAt],
+  );
+  return { ok: true as const, message: { id, senderType: "DRIVER" as const, senderName, body, createdAt: createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) } };
+}
+
 export async function saveDriverSettings(input: {
   vehicleInfo: string;
+  photoUrl: string;
   locations: string[];
   payoutAccounts: { provider: string; accountHolder: string; accountPhone: string }[];
 }) {
   const current = await getCurrentDriver();
   if (!current) return { ok: false, error: "Sign in to update your driver settings." };
-  if (!input || typeof input.vehicleInfo !== "string" || !Array.isArray(input.locations) ||
+  if (!input || typeof input.vehicleInfo !== "string" || typeof input.photoUrl !== "string" || !Array.isArray(input.locations) ||
       input.locations.some((location) => typeof location !== "string") ||
       !Array.isArray(input.payoutAccounts) ||
       input.payoutAccounts.some((account) => !account || typeof account.provider !== "string" ||
@@ -48,6 +86,7 @@ export async function saveDriverSettings(input: {
     return { ok: false, error: "Driver settings contain invalid values." };
   }
   const vehicleInfo = input.vehicleInfo.trim();
+  const photoUrl = input.photoUrl.trim();
   const locations = input.locations.map((location) => location.trim()).filter(Boolean);
   const payoutAccounts = input.payoutAccounts.map((account) => ({
     provider: account.provider.trim(),
@@ -56,6 +95,7 @@ export async function saveDriverSettings(input: {
   }));
 
   if (vehicleInfo.length > 191) return { ok: false, error: "Vehicle details must be 191 characters or fewer." };
+  if (photoUrl.length > 512 || !isValidDriverPhotoReference(photoUrl)) return { ok: false, error: "Choose a valid uploaded driver photo." };
   if (!locations.length || locations.some((location) => location.length > 160)) {
     return { ok: false, error: "Add at least one service location (up to 160 characters each)." };
   }
@@ -74,7 +114,7 @@ export async function saveDriverSettings(input: {
   const now = new Date();
   try {
     await withTransaction(async (transaction) => {
-      await transaction.execute("UPDATE Driver SET vehicleInfo = ?, updatedAt = ? WHERE id = ?", [vehicleInfo || null, now, current.driver.id]);
+      await transaction.execute("UPDATE Driver SET vehicleInfo = ?, photoUrl = ?, updatedAt = ? WHERE id = ?", [vehicleInfo || null, photoUrl || null, now, current.driver.id]);
       await transaction.execute("DELETE FROM DriverLocation WHERE driverId = ?", [current.driver.id]);
       await transaction.execute("DELETE FROM DriverPayoutAccount WHERE driverId = ?", [current.driver.id]);
       for (const location of locations) {

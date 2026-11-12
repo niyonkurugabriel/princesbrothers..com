@@ -570,6 +570,46 @@ export async function assignAdminDriver(orderNumber: string, driverId: string) {
   return { ok: true };
 }
 
+export async function loadAdminDriverMessages(driverId: string) {
+  const actorId = await adminActorId("orders:write");
+  if (!actorId) return { ok: false as const, error: "Admin session with orders:write permission required.", messages: [] };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId)) {
+    return { ok: false as const, error: "Choose a valid driver.", messages: [] };
+  }
+  const messages = await query<RowDataPacket & { id: string; senderType: "ADMIN" | "DRIVER"; senderName: string; body: string; createdAt: Date }>(
+    "SELECT id, senderType, senderName, body, createdAt FROM (SELECT id, senderType, senderName, body, createdAt FROM DriverMessage WHERE driverId = ? ORDER BY createdAt DESC LIMIT 100) recent ORDER BY createdAt ASC",
+    [driverId],
+  );
+  return {
+    ok: true as const,
+    messages: messages.map((message) => ({
+      ...message,
+      createdAt: message.createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })
+    }))
+  };
+}
+
+export async function sendAdminDriverMessage(driverId: string, bodyInput: string) {
+  const actorId = await adminActorId("orders:write");
+  if (!actorId) return { ok: false as const, error: "Admin session with orders:write permission required." };
+  const body = typeof bodyInput === "string" ? bodyInput.trim() : "";
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(driverId) || !body || body.length > 2000) {
+    return { ok: false as const, error: "Enter a message up to 2,000 characters for a valid driver." };
+  }
+  const [drivers, admins] = await Promise.all([
+    query<RowDataPacket & { id: string }>("SELECT id FROM Driver WHERE id = ? LIMIT 1", [driverId]),
+    query<RowDataPacket & { fullName: string }>("SELECT fullName FROM AdminUser WHERE id = ? AND isActive = 1 LIMIT 1", [actorId])
+  ]);
+  if (!drivers[0] || !admins[0]) return { ok: false as const, error: "Driver or admin account was not found." };
+  const id = randomUUID();
+  const createdAt = new Date();
+  await execute(
+    "INSERT INTO DriverMessage (id, driverId, senderType, senderId, senderName, body, createdAt) VALUES (?, ?, 'ADMIN', ?, ?, ?, ?)",
+    [id, driverId, actorId, admins[0].fullName, body, createdAt],
+  );
+  return { ok: true as const, message: { id, senderType: "ADMIN" as const, senderName: admins[0].fullName, body, createdAt: createdAt.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) } };
+}
+
 export async function saveMomoPaymentCode(code: string) {
   const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value;
   const claims = token ? await verifyActiveSession(token) : null;

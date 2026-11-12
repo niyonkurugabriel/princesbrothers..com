@@ -88,7 +88,18 @@ export type AdminOrder = {
   placed: string;
 };
 
-export type AdminDriver = { id: string; name: string; phone: string; driveCount: number; locations: string[] };
+export type AdminDriver = {
+  id: string;
+  name: string;
+  phone: string;
+  photoUrl: string;
+  vehicleInfo: string;
+  status: string;
+  availability: "Available" | "On delivery" | "Unavailable";
+  driveCount: number;
+  locations: string[];
+  recentDeliveries: { orderNumber: string; status: string; completedAt: string }[];
+};
 
 export type AdminPartner = {
   id: string;
@@ -125,12 +136,43 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
 
 export async function getAdminDrivers(): Promise<AdminDriver[]> {
   await resetDriverDriveCountForCurrentMonth();
-  const rows = await query<RowDataPacket & { id: string; name: string; phone: string | null; driveCount: number | string; driveCountMonth: string | null; currentMonth: string; locationName: string | null }>("SELECT d.id, CONCAT(u.firstName, ' ', u.lastName) AS name, u.phone, d.driveCount, DATE_FORMAT(d.driveCountMonth, '%Y-%m-%d') AS driveCountMonth, DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS currentMonth, dl.locationName FROM Driver d JOIN `User` u ON u.id = d.userId LEFT JOIN DriverLocation dl ON dl.driverId = d.id WHERE u.status = 'ACTIVE' ORDER BY u.firstName, u.lastName, dl.locationName");
+  const rows = await query<RowDataPacket & { id: string; name: string; phone: string | null; photoUrl: string | null; vehicleInfo: string | null; status: string; activeRoutes: number | string; driveCount: number | string; driveCountMonth: string | null; currentMonth: string; locationName: string | null }>("SELECT d.id, CONCAT(u.firstName, ' ', u.lastName) AS name, u.phone, d.photoUrl, d.vehicleInfo, u.status, (SELECT COUNT(*) FROM DeliveryRoute activeRoute WHERE activeRoute.driverId = d.id AND activeRoute.routeDate = CURRENT_DATE() AND activeRoute.status <> 'DELIVERED') AS activeRoutes, d.driveCount, DATE_FORMAT(d.driveCountMonth, '%Y-%m-%d') AS driveCountMonth, DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS currentMonth, dl.locationName FROM Driver d JOIN `User` u ON u.id = d.userId LEFT JOIN DriverLocation dl ON dl.driverId = d.id ORDER BY u.firstName, u.lastName, dl.locationName");
   const drivers = new Map<string, AdminDriver>();
   for (const row of rows) {
-    const driver = drivers.get(row.id) ?? { id: row.id, name: row.name, phone: row.phone ?? "", driveCount: getDriverDriveCountForMonth(row.driveCount, row.driveCountMonth, row.currentMonth), locations: [] };
+    const driver = drivers.get(row.id) ?? {
+      id: row.id,
+      name: row.name,
+      phone: row.phone ?? "",
+      photoUrl: row.photoUrl ?? "",
+      vehicleInfo: row.vehicleInfo ?? "",
+      status: row.status,
+      availability: row.status !== "ACTIVE" ? "Unavailable" : Number(row.activeRoutes) > 0 ? "On delivery" : "Available",
+      driveCount: getDriverDriveCountForMonth(row.driveCount, row.driveCountMonth, row.currentMonth),
+      locations: [],
+      recentDeliveries: []
+    };
     if (row.locationName) driver.locations.push(row.locationName);
     drivers.set(row.id, driver);
+  }
+  const driverIds = [...drivers.keys()];
+  if (driverIds.length) {
+    const recentDeliveries = await query<RowDataPacket & { driverId: string; orderNumber: string; status: string; completedAt: Date }>(
+      `SELECT driverId, orderNumber, status, completedAt FROM (
+        SELECT dr.driverId, o.orderNumber, o.status, COALESCE(pod.deliveredAt, o.updatedAt) AS completedAt,
+          ROW_NUMBER() OVER (PARTITION BY dr.driverId ORDER BY COALESCE(pod.deliveredAt, o.updatedAt) DESC) AS rowNum
+        FROM DeliveryRoute dr JOIN \`Order\` o ON o.routeId = dr.id
+        LEFT JOIN ProofOfDelivery pod ON pod.orderId = o.id
+        WHERE dr.driverId IN (${driverIds.map(() => "?").join(",")})
+      ) recent WHERE rowNum <= 5 ORDER BY driverId, completedAt DESC`,
+      driverIds,
+    );
+    for (const delivery of recentDeliveries) {
+      drivers.get(delivery.driverId)?.recentDeliveries.push({
+        orderNumber: delivery.orderNumber,
+        status: delivery.status,
+        completedAt: delivery.completedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      });
+    }
   }
   return [...drivers.values()];
 }

@@ -6,6 +6,8 @@ import { saveDriverSettings, updateDriverDeliveryStatus } from "@/app/(driver)/a
 import type { DriverProfile, DriverStop } from "@/features/driver/server/data";
 import { ProofCapture } from "@/features/driver/components/proof-capture";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
+import { ProductImage } from "@/features/storefront/components/product-image";
+import { DriverChat } from "@/features/driver/components/driver-chat";
 
 type RouteStatus = DriverStop["status"];
 const labels: Record<RouteStatus, string> = { PICKED_UP: "Picked up", IN_TRANSIT: "In transit", DELIVERED: "Delivered" };
@@ -17,12 +19,14 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
   const [showAll, setShowAll] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [vehicleInfo, setVehicleInfo] = useState(profile.vehicleInfo);
+  const [photoUrl, setPhotoUrl] = useState(profile.photoUrl);
   const [locations, setLocations] = useState(profile.locations);
   const [payoutAccounts, setPayoutAccounts] = useState<PayoutAccountDraft[]>(
     profile.payoutAccounts.map((account) => ({ ...account, key: account.id })),
   );
   const [message, setMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [statusError, setStatusError] = useState("");
   const router = useRouter();
@@ -46,6 +50,7 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
     setMessage("");
     const result = await saveDriverSettings({
       vehicleInfo,
+      photoUrl,
       locations,
       payoutAccounts: payoutAccounts.map(({ provider, accountHolder, accountPhone }) => ({ provider, accountHolder, accountPhone })),
     });
@@ -56,6 +61,26 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
     }
     setMessage("Driver settings saved.");
     router.refresh();
+  }
+
+  async function uploadPhoto(file: File | undefined) {
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    setMessage("");
+    try {
+      const form = new FormData();
+      form.set("image", file);
+      const response = await fetch("/api/driver/profile/image", { method: "POST", body: form });
+      const result = await response.json() as { photoUrl?: string; error?: string };
+      if (!response.ok || !result.photoUrl) throw new Error(result.error ?? "Driver photo upload failed.");
+      setPhotoUrl(result.photoUrl);
+      setMessage("Driver photo uploaded. Save settings to keep it on your profile.");
+    } catch (error) {
+      console.error("Driver photo upload failed.", error);
+      setMessage(error instanceof Error ? error.message : "Driver photo upload failed.");
+    } finally {
+      setIsUploadingPhoto(false);
+    }
   }
 
   async function signOut() {
@@ -78,12 +103,14 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
       <div className="driver-header-actions"><span className="driver-online"><i /> Online</span><ThemeToggle /><button className="driver-menu" type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>{settingsOpen ? "Close" : "Settings"}</button><button className="driver-menu" type="button" disabled={isSigningOut} onClick={() => void signOut()}>{isSigningOut ? "Signing out…" : "Sign out"}</button></div>
     </header>
     <section className="driver-summary">
+      <ProductImage className="driver-profile-photo" src={photoUrl || "/driver-avatar.svg"} fallbackSrc="/driver-avatar.svg" alt={`${profile.name} profile`} />
       <div><p className="driver-eyebrow">Driver dashboard</p><h1>Your routes, <em>today.</em></h1><p className="driver-muted">Welcome, {profile.name}{profile.phone ? ` · ${profile.phone}` : ""} · {visibleStops.length} active {visibleStops.length === 1 ? "delivery" : "deliveries"}</p><p className="driver-muted">{profile.driveCount} completed {profile.driveCount === 1 ? "delivery" : "deliveries"} this month</p></div>
       <div className="cod-balance"><span>COD collected</span><strong>${codBalance.toFixed(2)}</strong><small>Today&apos;s balance</small></div>
     </section>
     {settingsOpen && <form className="driver-settings" onSubmit={(event) => void saveSettings(event)}>
       <h2>Driver settings</h2>
       <p className="driver-muted">Manage your service areas, vehicle, and payout accounts.</p>
+      <label>Profile photo<input type="file" accept="image/jpeg,image/png,image/webp" disabled={isUploadingPhoto || isSaving} onChange={(event) => void uploadPhoto(event.target.files?.[0])} /><small>{isUploadingPhoto ? "Uploading photo…" : "JPEG, PNG, or WebP; maximum 5 MB."}</small></label>
       <label>Vehicle details<input maxLength={191} value={vehicleInfo} onChange={(event) => setVehicleInfo(event.target.value)} placeholder="e.g. Toyota Hiace · RAE 123A" /></label>
       <div className="driver-settings-section"><h3>Service locations</h3><p className="driver-muted">Add every area where dispatch can call you to collect products.</p>
         {locations.map((location, index) => <div className="driver-setting-row" key={`location-${index}`}><input required maxLength={160} aria-label={`Service location ${index + 1}`} value={location} onChange={(event) => setLocations((current) => current.map((item, itemIndex) => itemIndex === index ? event.target.value : item))} /><button type="button" onClick={() => setLocations((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove service location ${index + 1}`}>Remove</button></div>)}
@@ -102,6 +129,7 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
     <div className="driver-toolbar"><span>{showAll ? "All deliveries" : "Active routes"}</span><button className="driver-filter" type="button" onClick={() => setShowAll(!showAll)}>{showAll ? "Show active" : `Show completed (${stops.filter((stop) => stop.status === "DELIVERED").length})`} <span aria-hidden="true">⌄</span></button></div>
     {statusError && <p className="driver-error driver-status-error" role="alert">{statusError}</p>}
     <section className="route-list">{visibleStops.length ? visibleStops.map((stop, index) => <RouteCard key={stop.id} stop={stop} index={index} onStatusChange={(id, status) => void changeStatus(id, status)} onProof={() => setProofFor(stop.id)} />) : <div className="driver-empty"><span>✓</span><h2>All clear.</h2><p>Every delivery is complete for today.</p></div>}</section>
+    <DriverChat audience="driver" />
     {proofFor && <div className="proof-backdrop"><ProofCapture onCancel={() => setProofFor(null)} onComplete={() => { void changeStatus(proofFor, "DELIVERED").then((saved) => { if (saved) setProofFor(null); }); }} /></div>}
   </div>;
 }

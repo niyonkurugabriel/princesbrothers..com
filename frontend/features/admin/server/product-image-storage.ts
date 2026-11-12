@@ -70,9 +70,17 @@ function getS3Client(config: ProductImageStorageConfig): S3Client {
 export class ProductImageStorageConfigurationError extends Error {}
 
 export function isValidProductImageReference(imagePath: string): boolean {
+  return isValidPublicImageReference(imagePath, "products", true);
+}
+
+export function isValidDriverPhotoReference(imagePath: string): boolean {
+  return isValidPublicImageReference(imagePath, "drivers", false);
+}
+
+function isValidPublicImageReference(imagePath: string, prefix: "products" | "drivers", allowLegacyPath: boolean): boolean {
   if (!imagePath) return true;
-  const localPath = /^\/uploads\/products\/[a-f0-9-]{36}\.(?:jpg|png|webp)$/i;
-  if (localPath.test(imagePath)) return true;
+  const localPath = new RegExp(`^/uploads/${prefix}/[a-f0-9-]{36}\\.(?:jpg|png|webp)$`, "i");
+  if (allowLegacyPath && localPath.test(imagePath)) return true;
 
   const baseUrlValue = process.env.PRODUCT_IMAGE_PUBLIC_BASE_URL;
   if (!baseUrlValue) return false;
@@ -91,14 +99,15 @@ export function isValidProductImageReference(imagePath: string): boolean {
     if (!fileName) return false;
     const basePath = baseUrl.pathname.replace(/\/+$/, "");
     return url.origin === baseUrl.origin &&
-      url.pathname === `${basePath}/products/${fileName[0]}` &&
+      url.pathname === `${basePath}/${prefix}/${fileName[0]}` &&
       !url.username && !url.password && !url.search && !url.hash;
   } catch {
     return false;
   }
 }
 
-export async function uploadProductImage(
+async function uploadPublicImage(
+  prefix: "products" | "drivers",
   fileName: string,
   bytes: Buffer,
   extension: ProductImageExtension,
@@ -106,10 +115,18 @@ export async function uploadProductImage(
   const config = getStorageConfig();
   await getS3Client(config).send(new PutObjectCommand({
     Bucket: config.bucket,
-    Key: `products/${fileName}`,
+    Key: `${prefix}/${fileName}`,
     Body: bytes,
     ContentType: extension === "jpg" ? "image/jpeg" : `image/${extension}`,
     CacheControl: "public, max-age=31536000, immutable"
   }));
-  return new URL(`products/${fileName}`, `${config.publicBaseUrl.toString().replace(/\/+$/, "")}/`).toString();
+  return new URL(`${prefix}/${fileName}`, `${config.publicBaseUrl.toString().replace(/\/+$/, "")}/`).toString();
+}
+
+export async function uploadProductImage(fileName: string, bytes: Buffer, extension: ProductImageExtension): Promise<string> {
+  return uploadPublicImage("products", fileName, bytes, extension);
+}
+
+export async function uploadDriverProfileImage(fileName: string, bytes: Buffer, extension: ProductImageExtension): Promise<string> {
+  return uploadPublicImage("drivers", fileName, bytes, extension);
 }
