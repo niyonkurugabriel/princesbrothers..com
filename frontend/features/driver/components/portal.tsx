@@ -78,7 +78,7 @@ export function DriverPortal({ profile, initialStops }: { profile: DriverProfile
       <div className="driver-header-actions"><span className="driver-online"><i /> Online</span><ThemeToggle /><button className="driver-menu" type="button" aria-expanded={settingsOpen} onClick={() => setSettingsOpen((open) => !open)}>{settingsOpen ? "Close" : "Settings"}</button><button className="driver-menu" type="button" disabled={isSigningOut} onClick={() => void signOut()}>{isSigningOut ? "Signing out…" : "Sign out"}</button></div>
     </header>
     <section className="driver-summary">
-      <div><p className="driver-eyebrow">Driver dashboard</p><h1>Your routes, <em>today.</em></h1><p className="driver-muted">Welcome, {profile.name}{profile.phone ? ` · ${profile.phone}` : ""} · {visibleStops.length} active {visibleStops.length === 1 ? "delivery" : "deliveries"}</p></div>
+      <div><p className="driver-eyebrow">Driver dashboard</p><h1>Your routes, <em>today.</em></h1><p className="driver-muted">Welcome, {profile.name}{profile.phone ? ` · ${profile.phone}` : ""} · {visibleStops.length} active {visibleStops.length === 1 ? "delivery" : "deliveries"}</p><p className="driver-muted">{profile.driveCount} completed {profile.driveCount === 1 ? "delivery" : "deliveries"} this month</p></div>
       <div className="cod-balance"><span>COD collected</span><strong>${codBalance.toFixed(2)}</strong><small>Today&apos;s balance</small></div>
     </section>
     {settingsOpen && <form className="driver-settings" onSubmit={(event) => void saveSettings(event)}>

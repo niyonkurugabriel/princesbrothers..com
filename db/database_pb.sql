@@ -262,12 +262,27 @@ CREATE TABLE `Driver` (
     `licenseNumber` VARCHAR(100) NOT NULL,
     `pinHash` VARCHAR(191) NULL,
     `vehicleInfo` VARCHAR(191) NULL,
+    `driveCount` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `driveCountMonth` DATE NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 
     UNIQUE INDEX `Driver_userId_key`(`userId`),
     UNIQUE INDEX `Driver_licenseNumber_key`(`licenseNumber`),
+    INDEX `Driver_driveCountMonth_idx`(`driveCountMonth`),
     PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- CreateTable
+CREATE TABLE `driver_monthly_stats` (
+    `driverId` VARCHAR(36) NOT NULL,
+    `monthStart` DATE NOT NULL,
+    `completedDeliveries` INTEGER UNSIGNED NOT NULL DEFAULT 0,
+    `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updatedAt` DATETIME(3) NOT NULL,
+
+    INDEX `driver_monthly_stats_monthStart_idx`(`monthStart`),
+    PRIMARY KEY (`driverId`, `monthStart`)
 ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- CreateTable
@@ -497,6 +512,7 @@ ALTER TABLE `CartItem` ADD CONSTRAINT `CartItem_productId_fkey` FOREIGN KEY (`pr
 
 -- AddForeignKey
 ALTER TABLE `Category` ADD CONSTRAINT `Category_parentId_fkey` FOREIGN KEY (`parentId`) REFERENCES `Category`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE `driver_monthly_stats` ADD CONSTRAINT `driver_monthly_stats_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE `ProductCategory` ADD CONSTRAINT `ProductCategory_productId_fkey` FOREIGN KEY (`productId`) REFERENCES `Product`(`id`) ON DELETE CASCADE ON UPDATE CASCADE;

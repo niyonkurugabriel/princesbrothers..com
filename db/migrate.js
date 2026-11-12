@@ -37,6 +37,11 @@ async function ensureIndex(pool, table, index, definition) {
 async function upgradeExistingSchema(pool) {
   await ensureColumn(pool, "AdminUser", "profileImageUrl", "VARCHAR(512) NULL");
   await ensureColumn(pool, "Product", "deletedAt", "DATETIME(3) NULL");
+  await ensureColumn(pool, "Driver", "driveCount", "INT UNSIGNED NOT NULL DEFAULT 0");
+  await ensureColumn(pool, "Driver", "driveCountMonth", "DATE NULL");
+  await ensureIndex(pool, "Driver", "Driver_driveCountMonth_idx", "INDEX `Driver_driveCountMonth_idx` (`driveCountMonth`)");
+  await pool.query("CREATE TABLE IF NOT EXISTS `driver_monthly_stats` (`driverId` VARCHAR(36) NOT NULL, `monthStart` DATE NOT NULL, `completedDeliveries` INT UNSIGNED NOT NULL DEFAULT 0, `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3), `updatedAt` DATETIME(3) NOT NULL, INDEX `driver_monthly_stats_monthStart_idx` (`monthStart`), PRIMARY KEY (`driverId`, `monthStart`), CONSTRAINT `driver_monthly_stats_driverId_fkey` FOREIGN KEY (`driverId`) REFERENCES `Driver`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+  await pool.query("INSERT IGNORE INTO `driver_monthly_stats` (driverId, monthStart, completedDeliveries, createdAt, updatedAt) SELECT dr.driverId, DATE_FORMAT(pod.deliveredAt, '%Y-%m-01'), COUNT(*), NOW(3), NOW(3) FROM ProofOfDelivery pod JOIN DeliveryRoute dr ON dr.id = pod.routeId GROUP BY dr.driverId, DATE_FORMAT(pod.deliveredAt, '%Y-%m-01')");
   const [descriptionColumns] = await pool.execute("SELECT DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'Product' AND column_name = 'description' LIMIT 1");
   if (descriptionColumns[0]?.DATA_TYPE !== "text") await pool.query("ALTER TABLE `Product` MODIFY COLUMN `description` TEXT NULL");
   await ensureColumn(pool, "Category", "slug", "VARCHAR(160) NULL");

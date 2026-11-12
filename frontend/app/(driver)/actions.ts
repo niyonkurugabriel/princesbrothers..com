@@ -9,6 +9,7 @@ import { AUTH_COOKIE_NAME, defaultTtlFor } from "@/features/auth/config";
 import { createSession } from "@/features/auth/session";
 import { verifyActiveSession } from "@/features/auth/server";
 import { logAuditEvent } from "@/shared/server/audit";
+import { isFirstDriverDeliveryCompletion } from "@/features/driver/server/monthly-stats";
 import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "mysql2/promise";
 
@@ -118,22 +119,39 @@ export async function updateDriverDeliveryStatus(orderId: string, status: Driver
   try {
     await withTransaction(async (transaction) => {
       const [orderRows] = await transaction.execute(
-        "SELECT o.id, o.routeId, o.deliveryStatus FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId JOIN Driver d ON d.id = dr.driverId WHERE o.id = ? AND d.id = ? FOR UPDATE",
+        "SELECT o.id, o.routeId, o.deliveryStatus, d.id AS driverId FROM `Order` o JOIN DeliveryRoute dr ON dr.id = o.routeId JOIN Driver d ON d.id = dr.driverId WHERE o.id = ? AND d.id = ? FOR UPDATE",
         [orderId, current.driver.id],
       );
-      const order = (orderRows as (RowDataPacket & { id: string; routeId: string; deliveryStatus: DriverDeliveryStatus | null })[])[0];
+      const order = (orderRows as (RowDataPacket & { id: string; routeId: string; driverId: string; deliveryStatus: DriverDeliveryStatus | null })[])[0];
       if (!order) throw new Error("Delivery is not assigned to this driver.");
       const progress: Record<DriverDeliveryStatus, number> = { PICKED_UP: 0, IN_TRANSIT: 1, DELIVERED: 2 };
       if (order.deliveryStatus && progress[status] < progress[order.deliveryStatus]) {
         throw new Error("A delivery cannot be moved back to an earlier status.");
       }
 
+      const firstCompletion = isFirstDriverDeliveryCompletion(order.deliveryStatus, status);
       const orderStatus = status === "DELIVERED" ? "COMPLETED" : "OUT_FOR_DELIVERY";
       const [result] = await transaction.execute(
         "UPDATE `Order` SET deliveryStatus = ?, status = ?, updatedAt = ? WHERE id = ? AND routeId = ?",
         [status, orderStatus, new Date(), orderId, order.routeId],
       );
       if (!("affectedRows" in result) || result.affectedRows !== 1) throw new Error("Delivery status could not be saved.");
+
+      if (firstCompletion) {
+        const [monthRows] = await transaction.execute("SELECT DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS monthStart");
+        const monthStart = (monthRows as (RowDataPacket & { monthStart: string })[])[0]?.monthStart;
+        if (!monthStart) throw new Error("The current driver statistics month could not be determined.");
+        const [driverResult] = await transaction.execute(
+          "UPDATE Driver SET driveCount = CASE WHEN driveCountMonth = ? THEN driveCount + 1 ELSE 1 END, driveCountMonth = ? WHERE id = ?",
+          [monthStart, monthStart, order.driverId],
+        );
+        if (!("affectedRows" in driverResult) || driverResult.affectedRows !== 1) throw new Error("Driver monthly count could not be updated.");
+        const now = new Date();
+        await transaction.execute(
+          "INSERT INTO driver_monthly_stats (driverId, monthStart, completedDeliveries, createdAt, updatedAt) VALUES (?, ?, 1, ?, ?) ON DUPLICATE KEY UPDATE completedDeliveries = completedDeliveries + 1, updatedAt = VALUES(updatedAt)",
+          [order.driverId, monthStart, now, now],
+        );
+      }
 
       const [aggregateRows] = await transaction.execute(
         "SELECT COUNT(*) AS total, SUM(deliveryStatus = 'DELIVERED') AS delivered, SUM(deliveryStatus = 'IN_TRANSIT') AS inTransit FROM `Order` WHERE routeId = ?",

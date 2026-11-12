@@ -1,5 +1,6 @@
 import { query } from "@princess-brothers/db";
 import { convertAmount } from "@/features/payments/payment-context";
+import { getDriverDriveCountForMonth, resetDriverDriveCountForCurrentMonth } from "@/features/driver/server/monthly-stats";
 import type { RowDataPacket } from "mysql2/promise";
 
 type ProductRow = RowDataPacket & {
@@ -87,7 +88,7 @@ export type AdminOrder = {
   placed: string;
 };
 
-export type AdminDriver = { id: string; name: string; phone: string; locations: string[] };
+export type AdminDriver = { id: string; name: string; phone: string; driveCount: number; locations: string[] };
 
 export type AdminPartner = {
   id: string;
@@ -123,10 +124,11 @@ export async function getAdminOrders(): Promise<AdminOrder[]> {
 }
 
 export async function getAdminDrivers(): Promise<AdminDriver[]> {
-  const rows = await query<RowDataPacket & { id: string; name: string; phone: string | null; locationName: string | null }>("SELECT d.id, CONCAT(u.firstName, ' ', u.lastName) AS name, u.phone, dl.locationName FROM Driver d JOIN `User` u ON u.id = d.userId LEFT JOIN DriverLocation dl ON dl.driverId = d.id WHERE u.status = 'ACTIVE' ORDER BY u.firstName, u.lastName, dl.locationName");
+  await resetDriverDriveCountForCurrentMonth();
+  const rows = await query<RowDataPacket & { id: string; name: string; phone: string | null; driveCount: number | string; driveCountMonth: string | null; currentMonth: string; locationName: string | null }>("SELECT d.id, CONCAT(u.firstName, ' ', u.lastName) AS name, u.phone, d.driveCount, DATE_FORMAT(d.driveCountMonth, '%Y-%m-%d') AS driveCountMonth, DATE_FORMAT(CURRENT_DATE(), '%Y-%m-01') AS currentMonth, dl.locationName FROM Driver d JOIN `User` u ON u.id = d.userId LEFT JOIN DriverLocation dl ON dl.driverId = d.id WHERE u.status = 'ACTIVE' ORDER BY u.firstName, u.lastName, dl.locationName");
   const drivers = new Map<string, AdminDriver>();
   for (const row of rows) {
-    const driver = drivers.get(row.id) ?? { id: row.id, name: row.name, phone: row.phone ?? "", locations: [] };
+    const driver = drivers.get(row.id) ?? { id: row.id, name: row.name, phone: row.phone ?? "", driveCount: getDriverDriveCountForMonth(row.driveCount, row.driveCountMonth, row.currentMonth), locations: [] };
     if (row.locationName) driver.locations.push(row.locationName);
     drivers.set(row.id, driver);
   }
