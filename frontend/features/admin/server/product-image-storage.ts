@@ -1,132 +1,81 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 
-type ProductImageExtension = "jpg" | "png" | "webp";
+type ImageExtension = "jpg" | "png" | "webp";
+type ImagePrefix = "products" | "drivers";
 
-type ProductImageStorageConfig = {
-  bucket: string;
-  region: string;
-  endpoint?: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  publicBaseUrl: URL;
-};
-
-let client: S3Client | undefined;
-
-function getStorageConfig(): ProductImageStorageConfig {
-  const bucket = process.env.PRODUCT_IMAGE_S3_BUCKET;
-  const region = process.env.PRODUCT_IMAGE_S3_REGION;
-  const accessKeyId = process.env.PRODUCT_IMAGE_S3_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.PRODUCT_IMAGE_S3_SECRET_ACCESS_KEY;
-  const endpoint = process.env.PRODUCT_IMAGE_S3_ENDPOINT;
-  const publicBaseUrlValue = process.env.PRODUCT_IMAGE_PUBLIC_BASE_URL;
-
-  if (!bucket || !region || !accessKeyId || !secretAccessKey || !publicBaseUrlValue) {
-    throw new ProductImageStorageConfigurationError("Product image object storage is not fully configured.");
-  }
-
-  let publicBaseUrl: URL;
-  try {
-    publicBaseUrl = new URL(publicBaseUrlValue);
-  } catch {
-    throw new ProductImageStorageConfigurationError("PRODUCT_IMAGE_PUBLIC_BASE_URL must be an absolute URL.");
-  }
-  if (
-    !["http:", "https:"].includes(publicBaseUrl.protocol) ||
-    (process.env.NODE_ENV === "production" && publicBaseUrl.protocol !== "https:") ||
-    publicBaseUrl.username ||
-    publicBaseUrl.password ||
-    publicBaseUrl.search ||
-    publicBaseUrl.hash
-  ) {
-    throw new ProductImageStorageConfigurationError("Product image public URL must use HTTPS in production and cannot contain credentials, query, or fragment.");
-  }
-  if (endpoint) {
-    let endpointUrl: URL;
-    try {
-      endpointUrl = new URL(endpoint);
-    } catch {
-      throw new ProductImageStorageConfigurationError("PRODUCT_IMAGE_S3_ENDPOINT must be an absolute URL.");
-    }
-    if (!["http:", "https:"].includes(endpointUrl.protocol) || (process.env.NODE_ENV === "production" && endpointUrl.protocol !== "https:")) {
-      throw new ProductImageStorageConfigurationError("Product image storage endpoint must use HTTPS in production.");
-    }
-  }
-
-  return { bucket, region, accessKeyId, secretAccessKey, endpoint, publicBaseUrl };
-}
-
-function getS3Client(config: ProductImageStorageConfig): S3Client {
-  if (!client) {
-    client = new S3Client({
-      region: config.region,
-      ...(config.endpoint ? { endpoint: config.endpoint, forcePathStyle: true } : {}),
-      credentials: { accessKeyId: config.accessKeyId, secretAccessKey: config.secretAccessKey }
-    });
-  }
-  return client;
-}
+const imageFileNamePattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.(jpg|png|webp)$/i;
+const storedImagePathPattern = /^\/api\/images\/(products|drivers)\/([a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}\.(?:jpg|png|webp))$/i;
 
 export class ProductImageStorageConfigurationError extends Error {}
 
+function getStorageRoot(): string {
+  const configuredDirectory = process.env.PRODUCT_IMAGE_STORAGE_DIR?.trim();
+  if (process.env.NODE_ENV === "production" && !configuredDirectory) {
+    throw new ProductImageStorageConfigurationError("Set PRODUCT_IMAGE_STORAGE_DIR to a writable persistent server directory.");
+  }
+  if (configuredDirectory && !path.isAbsolute(configuredDirectory)) {
+    throw new ProductImageStorageConfigurationError("PRODUCT_IMAGE_STORAGE_DIR must be an absolute path.");
+  }
+  return path.resolve(configuredDirectory || path.join(process.cwd(), "storage", "product-images"));
+}
+
+function contentType(extension: ImageExtension): string {
+  return extension === "jpg" ? "image/jpeg" : `image/${extension}`;
+}
+
+function isValidImageFileName(fileName: string): boolean {
+  return imageFileNamePattern.test(fileName);
+}
+
+function isValidImageReference(imagePath: string, prefix: ImagePrefix, allowLegacyPath: boolean): boolean {
+  if (!imagePath) return true;
+  const storedPath = storedImagePathPattern.exec(imagePath);
+  if (storedPath?.[1].toLowerCase() === prefix) return true;
+  return allowLegacyPath && new RegExp(`^/uploads/${prefix}/[a-f0-9-]{36}\\.(?:jpg|png|webp)$`, "i").test(imagePath);
+}
+
+async function storeImage(
+  prefix: ImagePrefix,
+  fileName: string,
+  bytes: Buffer,
+  extension: ImageExtension,
+): Promise<string> {
+  const match = /^.+\.(jpg|png|webp)$/i.exec(fileName);
+  if (!isValidImageFileName(fileName) || match?.[1].toLowerCase() !== extension) {
+    throw new Error("Image filename and extension are invalid.");
+  }
+  const directory = path.join(getStorageRoot(), prefix);
+  await mkdir(directory, { recursive: true });
+  await writeFile(path.join(directory, fileName.toLowerCase()), bytes, { flag: "wx", mode: 0o644 });
+  return `/api/images/${prefix}/${fileName.toLowerCase()}`;
+}
+
 export function isValidProductImageReference(imagePath: string): boolean {
-  return isValidPublicImageReference(imagePath, "products", true);
+  return isValidImageReference(imagePath, "products", true);
 }
 
 export function isValidDriverPhotoReference(imagePath: string): boolean {
-  return isValidPublicImageReference(imagePath, "drivers", false);
+  return isValidImageReference(imagePath, "drivers", true);
 }
 
-function isValidPublicImageReference(imagePath: string, prefix: "products" | "drivers", allowLegacyPath: boolean): boolean {
-  if (!imagePath) return true;
-  const localPath = new RegExp(`^/uploads/${prefix}/[a-f0-9-]{36}\\.(?:jpg|png|webp)$`, "i");
-  if (allowLegacyPath && localPath.test(imagePath)) return true;
+export async function uploadProductImage(fileName: string, bytes: Buffer, extension: ImageExtension): Promise<string> {
+  return storeImage("products", fileName, bytes, extension);
+}
 
-  const baseUrlValue = process.env.PRODUCT_IMAGE_PUBLIC_BASE_URL;
-  if (!baseUrlValue) return false;
+export async function uploadDriverProfileImage(fileName: string, bytes: Buffer, extension: ImageExtension): Promise<string> {
+  return storeImage("drivers", fileName, bytes, extension);
+}
+
+export async function readStoredImage(prefix: ImagePrefix, fileName: string): Promise<{ bytes: Buffer; contentType: string } | null> {
+  if (!isValidImageFileName(fileName)) return null;
+  const normalizedFileName = fileName.toLowerCase();
+  const extension: ImageExtension = normalizedFileName.endsWith(".jpg") ? "jpg" : normalizedFileName.endsWith(".png") ? "png" : "webp";
   try {
-    const url = new URL(imagePath);
-    const baseUrl = new URL(baseUrlValue);
-    if (
-      !["http:", "https:"].includes(baseUrl.protocol) ||
-      (process.env.NODE_ENV === "production" && baseUrl.protocol !== "https:") ||
-      baseUrl.username ||
-      baseUrl.password ||
-      baseUrl.search ||
-      baseUrl.hash
-    ) return false;
-    const fileName = /^([a-f0-9-]{36}\.(?:jpg|png|webp))$/i.exec(url.pathname.split("/").pop() ?? "");
-    if (!fileName) return false;
-    const basePath = baseUrl.pathname.replace(/\/+$/, "");
-    return url.origin === baseUrl.origin &&
-      url.pathname === `${basePath}/${prefix}/${fileName[0]}` &&
-      !url.username && !url.password && !url.search && !url.hash;
-  } catch {
-    return false;
+    const bytes = await readFile(path.join(getStorageRoot(), prefix, normalizedFileName));
+    return { bytes, contentType: contentType(extension) };
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return null;
+    throw error;
   }
-}
-
-async function uploadPublicImage(
-  prefix: "products" | "drivers",
-  fileName: string,
-  bytes: Buffer,
-  extension: ProductImageExtension,
-): Promise<string> {
-  const config = getStorageConfig();
-  await getS3Client(config).send(new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: `${prefix}/${fileName}`,
-    Body: bytes,
-    ContentType: extension === "jpg" ? "image/jpeg" : `image/${extension}`,
-    CacheControl: "public, max-age=31536000, immutable"
-  }));
-  return new URL(`${prefix}/${fileName}`, `${config.publicBaseUrl.toString().replace(/\/+$/, "")}/`).toString();
-}
-
-export async function uploadProductImage(fileName: string, bytes: Buffer, extension: ProductImageExtension): Promise<string> {
-  return uploadPublicImage("products", fileName, bytes, extension);
-}
-
-export async function uploadDriverProfileImage(fileName: string, bytes: Buffer, extension: ProductImageExtension): Promise<string> {
-  return uploadPublicImage("drivers", fileName, bytes, extension);
 }

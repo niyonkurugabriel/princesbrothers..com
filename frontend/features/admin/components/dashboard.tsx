@@ -1,9 +1,9 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { convertAmount, formatLocalAmount } from "@/features/payments/payment-context";
-import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdminDriver, createAdminAccount, createAdminCategory, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
+import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdminDriver, createAdminAccount, createAdminCategory, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { PasswordInput } from "@/features/auth/components/password-input";
@@ -77,12 +77,6 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
       else delete next[orderNumber];
       return next;
     });
-  }
-
-  async function audit(action: string, entity: string, id: string) {
-    const result = await mutateAdmin(action, entity, id);
-    setToast(result.ok ? `${action} logged` : result.error ?? "Action unavailable");
-    window.setTimeout(() => setToast(""), 2800);
   }
 
   async function reviewPartner(status: "APPROVED" | "REJECTED") {

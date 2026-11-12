@@ -51,8 +51,8 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Driver profile image could not be stored.", error);
     return NextResponse.json(
-      { error: error instanceof ProductImageStorageConfigurationError ? error.message : "Driver image storage is unavailable. Try again later." },
-      { status: error instanceof ProductImageStorageConfigurationError ? 503 : 502 },
+      { error: error instanceof ProductImageStorageConfigurationError ? error.message : "Server image storage is unavailable. Check directory permissions and try again." },
+      { status: error instanceof ProductImageStorageConfigurationError ? 503 : 500 },
     );
   }
 }

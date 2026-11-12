@@ -20,15 +20,16 @@ Set the following variables in your deployment environment, secret manager, or V
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and `GOOGLE_REDIRECT_URI`: Google OAuth login.
 - `EMAIL_PROVIDER` and `EMAIL_FROM`: authentication and password-reset email delivery. For a local Postfix relay, set `EMAIL_PROVIDER=smtp`, `EMAIL_SERVER_HOST=127.0.0.1`, and `EMAIL_SERVER_PORT=25`; set both SMTP auth variables to `none` when the relay does not require authentication. For Resend, SendGrid, or Postmark, use the matching API token and verify the sender domain used by `EMAIL_FROM`.
 - `SENTRY_DSN`: Optional monitoring and error reporting endpoint.
-- `PRODUCT_IMAGE_S3_BUCKET`, `PRODUCT_IMAGE_S3_REGION`, `PRODUCT_IMAGE_S3_ACCESS_KEY_ID`, `PRODUCT_IMAGE_S3_SECRET_ACCESS_KEY`, and `PRODUCT_IMAGE_PUBLIC_BASE_URL`: Required for product and driver profile image uploads. `PRODUCT_IMAGE_S3_ENDPOINT` is optional for AWS S3 and required for S3-compatible services such as Cloudflare R2. The public base URL must serve the bucket's `products/` and `drivers/` prefixes over HTTPS.
-- `PRODUCT_IMAGE_UPLOAD_SOURCE_DIR`: Optional directory containing existing local `public/uploads/products` files when migrating them; defaults to `frontend/public/uploads/products` from the repository root.
+- `PRODUCT_IMAGE_STORAGE_DIR`: Required in production. Set an absolute, writable path on persistent local server storage; it contains the `products/` and `drivers/` subfolders. In development it defaults to `frontend/storage/product-images` when run from the web workspace.
+- `PRODUCT_IMAGE_UPLOAD_SOURCE_DIR`: Optional directory containing old local `public/uploads/products` files for migration; defaults to `frontend/public/uploads/products` from the repository root.
+- `PRODUCT_IMAGE_MIGRATION_SOURCE_BASE_URL`: Optional one-time HTTPS base URL for importing old image URLs from the previous S3-compatible setup. It is not used by runtime image uploads or reads.
 
 ## Recommended deployment layout
 
 - Web app: Next.js server deployment
 - Database and session store: managed MySQL 8 instance
-- Static assets: CDN or S3-backed delivery
-- Product and driver profile uploads: an S3-compatible bucket with public read access limited to the `products/` and `drivers/` prefixes, served through a CDN/custom domain. Keep upload credentials server-side and restrict them to the required bucket operations.
+- Static assets: CDN or local web-server delivery
+- Product and driver profile uploads: a persistent local directory mounted at `PRODUCT_IMAGE_STORAGE_DIR`; the Next.js image route serves these files from disk. No external image provider, bucket, or CDN is required. Back up this directory with the database and share the same mount across app instances.
 - Private contributor chat attachments: persistent private storage mounted at `storage/contributor-chat` (not the public web directory)
 - Secrets: environment or secret manager, never committed to source control
 
@@ -40,7 +41,7 @@ Set the following variables in your deployment environment, secret manager, or V
 4. Set `APP_URL` to `https://www.princesbrothers.com` and use that single canonical origin for login redirects, canonical metadata, and the sitemap. The app permanently redirects the apex host to `www`.
 5. Keep the deployed `/robots.txt` in sync with `frontend/public/robots.txt`. The current production response is served by the web-server static root, so updating the Next.js source alone may not replace that copy.
 6. Run the CI checks before deployment: `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build`.
-7. Configure product-image storage and migrate existing local product images while their source files are still available. Run `npm run images:migrate` for a dry run, then `npm run images:migrate -- --apply`; resolve any reported missing files before removing the old release directory. Driver photos use the same credentials and bucket under the `drivers/` prefix.
+7. Mount a persistent local directory and set `PRODUCT_IMAGE_STORAGE_DIR` before enabling uploads. Run `npm run images:migrate` for a dry run, then `npm run images:migrate -- --apply` to copy existing local images and update database references. If database records point to the former object store, set `PRODUCT_IMAGE_MIGRATION_SOURCE_BASE_URL` only for this one-time import; resolve missing images and verify local URLs before removing old files. Back up the image directory with MySQL.
 8. Driver chat uses authenticated five-second polling and database message history; it does not require a separate WebSocket service. After deployment, verify an admin and a driver can exchange messages.
 9. Verify MySQL connectivity, password-reset and invoice email delivery, Twilio SMS delivery, product/driver image uploads, and mobile-money payments before enabling production checkout. Payment completion is confirmed server-side against the PawaPay deposit status API; callback setup is not required.
 
@@ -72,12 +73,9 @@ TWILIO_ACCOUNT_SID="..."
 TWILIO_AUTH_TOKEN="..."
 TWILIO_PHONE_NUMBER="+1..."
 COMPANY_WHATSAPP_NUMBER="250791702041"
-PRODUCT_IMAGE_S3_BUCKET="princesbrothers-product-images"
-PRODUCT_IMAGE_S3_REGION="auto"
-PRODUCT_IMAGE_S3_ENDPOINT="https://<account-id>.r2.cloudflarestorage.com"
-PRODUCT_IMAGE_S3_ACCESS_KEY_ID=""
-PRODUCT_IMAGE_S3_SECRET_ACCESS_KEY=""
-PRODUCT_IMAGE_PUBLIC_BASE_URL="https://images.example.com"
+PRODUCT_IMAGE_STORAGE_DIR="/srv/princesbrothers/product-images"
+# Optional, one-time import only:
+# PRODUCT_IMAGE_MIGRATION_SOURCE_BASE_URL="https://images.example.com"
 ```
 
 For local development, copy `.env.example` to `.env`, set a generated `AUTH_JWT_SECRET` of at least 32 characters, start MySQL on port 3306 (or update `DATABASE_URL` to match), create the `princesbrothers` database, and run `npm run db:migrate`.
