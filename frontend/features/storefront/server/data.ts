@@ -75,7 +75,7 @@ const catalogSelect = "SELECT p.id, p.name, p.description, p.imagePath, p.retail
 
 const loadProducts = unstable_cache(async (): Promise<StorefrontProduct[]> => {
   try {
-    const rows = await query<StorefrontProductRow>(`${catalogSelect} WHERE p.isActive = 1 ORDER BY p.name ASC`);
+    const rows = await query<StorefrontProductRow>(`${catalogSelect} WHERE p.isActive = 1 AND p.deletedAt IS NULL ORDER BY p.name ASC`);
     return rows.map(mapStorefrontProduct);
   } catch {
     return [];
@@ -89,7 +89,7 @@ export async function getProducts(): Promise<StorefrontProduct[]> {
 
 const loadProduct = unstable_cache(async (id: string): Promise<StorefrontProduct | undefined> => {
   try {
-    const rows = await query<StorefrontProductRow>(`${catalogSelect} WHERE p.id = ? AND p.isActive = 1 LIMIT 1`, [id]);
+    const rows = await query<StorefrontProductRow>(`${catalogSelect} WHERE p.id = ? AND p.isActive = 1 AND p.deletedAt IS NULL LIMIT 1`, [id]);
     return rows[0] ? mapStorefrontProduct(rows[0]) : undefined;
   } catch {
     return undefined;

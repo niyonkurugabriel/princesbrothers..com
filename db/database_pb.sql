@@ -144,6 +144,7 @@ CREATE TABLE `Product` (
     `retailPrice` DECIMAL(12, 2) NOT NULL,
     `currency` ENUM('RWF', 'USD', 'EUR', 'GBP', 'CAD') NOT NULL DEFAULT 'RWF',
     `isActive` BOOLEAN NOT NULL DEFAULT false,
+    `deletedAt` DATETIME(3) NULL,
     `createdAt` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     `updatedAt` DATETIME(3) NOT NULL,
 

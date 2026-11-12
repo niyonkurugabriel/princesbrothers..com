@@ -27,7 +27,7 @@ export type AdminProductCategory = { id: string; name: string };
 
 export async function getAdminProducts(): Promise<AdminProduct[]> {
   try {
-    const rows = await query<ProductRow>("SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.isActive, c.id AS categoryId, c.name AS categoryName, i.warehouseCode, i.quantity, i.source FROM Product p LEFT JOIN ProductCategory pc ON pc.productId = p.id LEFT JOIN Category c ON c.id = pc.categoryId LEFT JOIN InventoryItem i ON i.productId = p.id ORDER BY p.name ASC");
+    const rows = await query<ProductRow>("SELECT p.id, p.name, p.description, p.imagePath, p.retailPrice, p.currency, p.isActive, c.id AS categoryId, c.name AS categoryName, i.warehouseCode, i.quantity, i.source FROM Product p LEFT JOIN ProductCategory pc ON pc.productId = p.id LEFT JOIN Category c ON c.id = pc.categoryId LEFT JOIN InventoryItem i ON i.productId = p.id WHERE p.deletedAt IS NULL ORDER BY p.name ASC");
     const products = new Map<string, AdminProduct>();
     for (const row of rows) {
       const product = products.get(row.id) ?? {

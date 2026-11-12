@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { convertAmount, formatLocalAmount } from "@/features/payments/payment-context";
-import { advanceAdminOrder, approveAdminPayment, assignAdminDriver, createAdminAccount, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
+import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdminDriver, createAdminAccount, createAdminProduct, deleteAdminAccount, deleteAdminRole, loadAdminPartnerMessages, mutateAdmin, reviewAdminPartner, revokeAdminSession, saveAdminRole, saveMomoPaymentCode, sendAdminPartnerMessage, toggleAdminAccount, updateAdminAccount, updateAdminProduct, updateOwnAdminProfile } from "@/app/(admin)/actions";
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { PasswordInput } from "@/features/auth/components/password-input";
@@ -208,7 +208,7 @@ export function AdminDashboard({ data }: { data: DashboardData }) {
     <aside className="admin-sidebar"><div className="admin-brand"><span>P&amp;B</span><b>Admin</b></div><nav className="admin-nav">{["Overview", "Catalog & inventory", "Orders & fulfillment", "Partners", "Payment settings", "My settings", "RBAC management", "Admin users", "Audit trail"].map((item) => <button className={section === item ? "active" : ""} key={item} type="button" onClick={() => setSection(item)}><span className="nav-dot" />{item}</button>)}</nav><div className="admin-user">{data.currentAdmin.profileImageUrl ? <img className="avatar" src={data.currentAdmin.profileImageUrl} alt="" /> : <span className="avatar">{data.currentAdmin.fullName.slice(0, 2).toUpperCase()}</span>}<div><b>{data.currentAdmin.fullName}</b><small>@{data.currentAdmin.username}</small></div><button type="button" aria-label="Open my settings" title="My settings" onClick={() => setSection("My settings")}>•••</button><button className="admin-signout" type="button" aria-label="Sign out" title="Sign out" onClick={signOutAdmin}>↪</button></div></aside>
     <main className="admin-main"><header className="admin-topbar"><button className="admin-mobile-menu" type="button" aria-label="Open admin navigation">☰</button><div><span className="admin-breadcrumb">Admin / </span><b>{section}</b></div><div className="admin-top-actions"><span className="admin-live"><i /> All systems operational</span><ThemeToggle /><button type="button">◎</button></div></header>{toast && <div className="admin-toast">{toast}</div>}<div className="admin-content">
       {section === "Overview" && <Overview data={data} onSection={setSection} />}
-      {section === "Catalog & inventory" && <Catalog products={data.products} categories={data.categories} />}
+      {section === "Catalog & inventory" && <Catalog products={data.products} categories={data.categories} onToast={(message) => { setToast(message); window.setTimeout(() => setToast(""), 3200); }} />}
       {section === "Orders & fulfillment" && <Orders orders={data.orders} drivers={data.drivers} onProcess={processOrder} onApprovePayment={approvePayment} onAssignDriver={assignDriver} />}
       {section === "Partners" && <Partners partners={partners} tab={partnerTab} setTab={setPartnerTab} onSelect={setSelectedPartner} />}
       {section === "Payment settings" && <PaymentSettings code={momoPaymentCode} canEdit={data.isSuperAdmin} onChange={setMomoPaymentCode} onSave={savePaymentCode} />}
@@ -475,15 +475,30 @@ function PartnersPreview({
 
 function Sessions({ sessions, onRevoke }: { sessions: AdminSession[]; onRevoke: (session: AdminSession) => void }) { return <section className="admin-card sessions-card"><CardHeading eyebrow="Security" title="Active sessions" action="Force logout is immediate" /><div className="admin-table session-table"><div className="table-head"><span>User</span><span>Portal</span><span>Last seen</span><span>Expires</span><span /></div>{sessions.map((session) => <div className="table-row" key={session.id}><span><b>{session.user}</b><small>{session.email}</small></span><span>{session.portal}</span><span>{session.lastSeen}</span><span>{session.expires}</span><button className="danger-button" type="button" onClick={() => onRevoke(session)}>Force logout</button></div>)}</div></section>; }
 
-function Catalog({ products: initialProducts, categories }: { products: AdminProduct[]; categories: AdminProductCategory[] }) {
+function Catalog({ products: initialProducts, categories, onToast }: { products: AdminProduct[]; categories: AdminProductCategory[]; onToast: (message: string) => void }) {
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<AdminProduct | null>(null);
   const [creating, setCreating] = useState(false);
+  const router = useRouter();
 
   function replaceProduct(updated: AdminProduct) {
     setProducts((current) => current.some((product) => product.id === updated.id) ? current.map((product) => product.id === updated.id ? updated : product) : [updated, ...current]);
     setSelected(null);
     setCreating(false);
+    onToast("Product saved successfully.");
+    router.refresh();
+  }
+
+  async function archiveProduct(product: AdminProduct) {
+    if (!window.confirm(`Archive "${product.product}"? It will disappear from the storefront, while past orders remain unchanged.`)) return;
+    const result = await archiveAdminProduct(product.id);
+    if (!result.ok) {
+      onToast(result.error ?? "Product could not be archived.");
+      return;
+    }
+    setProducts((current) => current.filter((item) => item.id !== product.id));
+    onToast(`"${product.product}" archived successfully.`);
+    router.refresh();
   }
 
   return <>
@@ -498,7 +513,10 @@ function Catalog({ products: initialProducts, categories }: { products: AdminPro
           <span>{product.category}</span>
           <span>{product.active ? "On storefront" : "Hidden"}</span>
           <span><i className={`stock-level ${product.stock < 15 ? "low" : ""}`} />{product.stock} units</span>
-          <button className="row-menu" type="button" title={`Edit ${product.product}`} aria-label={`Edit ${product.product}`} onClick={() => setSelected(product)}>Edit</button>
+          <span className="catalog-row-actions">
+            <button className="row-menu" type="button" title={`Edit ${product.product}`} aria-label={`Edit ${product.product}`} onClick={() => setSelected(product)}>Edit</button>
+            <button className="danger-button" type="button" aria-label={`Delete ${product.product}`} onClick={() => void archiveProduct(product)}>Delete</button>
+          </span>
         </div>)}
         {!products.length && <p className="catalog-empty">No catalog products are available. Check the MySQL connection and product records.</p>}
       </div>

@@ -429,6 +429,35 @@ export async function createAdminProduct(formData: FormData) {
   }
 }
 
+export async function archiveAdminProduct(id: string) {
+  const actorId = await adminActorId("catalog:write");
+  if (!actorId) return { ok: false, error: "Admin session with catalog:write permission required." };
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return { ok: false, error: "Choose a valid product." };
+
+  const now = new Date();
+  try {
+    const result = await execute(
+      "UPDATE Product SET isActive = 0, deletedAt = ?, updatedAt = ? WHERE id = ? AND deletedAt IS NULL",
+      [now, now, id],
+    );
+    if (result.affectedRows !== 1) return { ok: false, error: "Product was not found or has already been archived." };
+  } catch (error) {
+    console.error("Product could not be archived.", error);
+    return { ok: false, error: "Product could not be archived. Check the database connection and try again." };
+  }
+
+  try {
+    await logAuditEvent({ actorId, action: "Archived product", entityType: "Product", entityId: id });
+  } catch (error) {
+    console.error("Product archived, but audit logging failed.", error);
+  }
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/dashboard");
+  revalidateTag("catalog");
+  return { ok: true };
+}
+
 export async function approveAdminPayment(orderNumber: string): Promise<{ ok: boolean; error?: string; invoiceSent?: boolean }> {
   const actorId = await adminActorId("orders:write");
   if (!actorId) return { ok: false, error: "Admin session with orders:write permission required." };
