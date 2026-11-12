@@ -19,6 +19,7 @@ import {
   EmptyState,
   useCart,
 } from "@/features/storefront/components/storefront";
+import { ProductImage } from "@/features/storefront/components/product-image";
 
 const money = formatDefaultAmount;
 
@@ -56,10 +57,7 @@ export function CartView() {
       <div className="cart-lines">
         {items.map(({ product, quantity }) => (
           <div className="cart-line" key={product.id}>
-            <div
-              className="cart-line-image"
-              style={{ backgroundImage: `url(${product.image})` }}
-            />
+            <ProductImage className="cart-line-image" src={product.image} alt={product.name} />
             <div className="cart-line-info">
               <p className="eyebrow">{product.category}</p>
               <h2>{product.name}</h2>

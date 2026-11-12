@@ -13,6 +13,7 @@ import { revokeSession } from "@/features/auth/session";
 import { verifyActiveSession } from "@/features/auth/server";
 import { approvePayment } from "@/features/payments/server/invoices";
 import { normalizeCategoryInput, parseProductTags } from "@/features/admin/server/product-metadata";
+import { isValidProductImageReference } from "@/features/admin/server/product-image-storage";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 
 type InventoryRow = RowDataPacket & { id: string; source: "INTERNAL" | "CONTRIBUTOR"; quantity: number; reserved: number };
@@ -392,7 +393,7 @@ export async function updateAdminProduct(formData: FormData): Promise<{ ok: fals
   const price = Number(formData.get("price"));
   const stock = Number(formData.get("stock"));
   const active = formData.get("active") === "on";
-  const imageIsSafe = !imagePath || /^\/uploads\/products\/[a-f0-9-]{36}\.(?:jpg|png|webp)$/i.test(imagePath);
+  const imageIsSafe = isValidProductImageReference(imagePath);
 
   if (!id || !name || name.length > 200 || !categoryId) {
     return { ok: false, error: "Enter a product name and choose a category." };
@@ -467,7 +468,7 @@ export async function createAdminProduct(formData: FormData): Promise<
   const price = Number(formData.get("price"));
   const stock = Number(formData.get("stock"));
   const active = formData.get("active") === "on";
-  const imageIsSafe = !imagePath || /^\/uploads\/products\/[a-f0-9-]{36}\.(?:jpg|png|webp)$/i.test(imagePath);
+  const imageIsSafe = isValidProductImageReference(imagePath);
   if (!name || name.length > 200 || !categoryId) return { ok: false, error: "Enter a product name and choose a category." };
   if (!tags) return { ok: false, error: "Enter up to 20 tags, each no longer than 80 characters." };
   if (!Number.isFinite(price) || price < 0 || !Number.isInteger(stock) || stock < 0 || description.length > 5000 || imagePath.length > 512 || !imageIsSafe) return { ok: false, error: "Check FRW price, stock, description, and uploaded image." };

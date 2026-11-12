@@ -9,6 +9,7 @@ import type { PropsWithChildren } from "react";
 import { formatDefaultAmount } from "@/features/payments/payment-context";
 import type { ApprovedContributor, StorefrontProduct } from "@/features/storefront/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
+import { ProductImage } from "@/features/storefront/components/product-image";
 import { ChevronDown, Home, ShoppingBasket, Sprout, Store, UserRound } from "lucide-react";
 
 type CartLine = { product: StorefrontProduct; quantity: number };
@@ -168,7 +169,7 @@ export function ProductCard({ product, priority = false }: { product: Storefront
   return (
     <article className="product-card organic-card-3d col-12 col-sm-6 col-lg-4">
       <Link href={`/products/${product.id}`} className="product-image-wrap">
-        <div className="product-image organic-card-3d__img" style={{ backgroundImage: `url(${product.image})` }} role="img" aria-label={product.name} />
+        <ProductImage className="product-image organic-card-3d__img" src={product.image} alt={product.name} />
         <span className="organic-ribbon">Organic</span>
         {priority && <span className="price-tag-3d">Fresh</span>}
       </Link>

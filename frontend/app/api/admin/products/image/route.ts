@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME } from "@/features/auth/config";
 import { verifyActiveSession } from "@/features/auth/server";
+import { ProductImageStorageConfigurationError, uploadProductImage } from "@/features/admin/server/product-image-storage";
 
 export const runtime = "nodejs";
 
@@ -46,10 +45,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Choose a valid JPEG, PNG, or WebP image." }, { status: 400 });
   }
 
-  const filename = `${randomUUID()}.${extension}`;
-  const directory = path.join(process.cwd(), "public", "uploads", "products");
-  await mkdir(directory, { recursive: true });
-  await writeFile(path.join(directory, filename), bytes, { flag: "wx" });
-
-  return NextResponse.json({ imagePath: `/uploads/products/${filename}` });
+  const fileName = `${randomUUID()}.${extension}`;
+  try {
+    const imagePath = await uploadProductImage(fileName, bytes, extension);
+    return NextResponse.json({ imagePath });
+  } catch (error) {
+    console.error("Product image could not be stored.", error);
+    return NextResponse.json(
+      { error: error instanceof ProductImageStorageConfigurationError ? error.message : "Product image storage is unavailable. Try again later." },
+      { status: error instanceof ProductImageStorageConfigurationError ? 503 : 502 },
+    );
+  }
 }

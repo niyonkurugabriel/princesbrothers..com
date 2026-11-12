@@ -566,3 +566,5 @@ button,.button,.admin-primary-button { border-radius:16px; }
   .mission-cards { grid-template-columns:1fr; }
   .mission-cards article { padding:23px; }
 }
+.product-image,.cart-line-image,.detail-image { display:block; object-fit:cover; width:100%; }
+.product-image-preview-image { height:120px; object-fit:cover; width:160px; }

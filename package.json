@@ -17,7 +17,8 @@
     "db:create": "npm run db:create --workspace=@princess-brothers/db",
     "db:migrate": "npm run db:migrate --workspace=@princess-brothers/db",
     "db:seed": "npm run db:seed --workspace=@princess-brothers/db",
-    "db:smoke": "node --env-file=.env db/smoke-test.js"
+    "db:smoke": "node --env-file=.env db/smoke-test.js",
+    "images:migrate": "node --env-file=.env scripts/migrate-product-images.js"
   },
   "devDependencies": {
     "@types/node": "^20.17.30",

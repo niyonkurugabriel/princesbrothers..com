@@ -7,6 +7,7 @@ import { advanceAdminOrder, approveAdminPayment, archiveAdminProduct, assignAdmi
 import type { AdminDriver, AdminOrder, AdminPartner, AdminProduct, AdminProductCategory, AdminRole, AdminSession } from "@/features/admin/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { PasswordInput } from "@/features/auth/components/password-input";
+import { ProductImage } from "@/features/storefront/components/product-image";
 import { SortableHeading, TablePagination, TableToolbar } from "@/features/admin/components/table-controls";
 import { useAdminTable } from "@/features/admin/components/use-admin-table";
 
@@ -684,7 +685,7 @@ function ProductEditor({ product, categories, availableTags, onClose, onSaved }:
       <label>On-hand stock<input name="stock" type="number" min="0" step="1" required defaultValue={product?.stock ?? 0} /></label>
       <input type="hidden" name="imagePath" value={imagePath} />
       <label className="wide">Product image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void uploadImage(event.currentTarget.files?.[0])} disabled={uploading} />{uploading && <small>Uploading image…</small>}</label>
-      {imagePath && <div className="wide"><img src={imagePath} alt="Product image preview" style={{ width: 160, height: 120, objectFit: "cover" }} /></div>}
+      {imagePath && <div className="wide product-image-preview"><ProductImage className="product-image-preview-image" src={imagePath} alt="Product image preview" /></div>}
       <label className="wide">Description<textarea name="description" rows={3} maxLength={5000} defaultValue={product?.description ?? ""} /></label>
       <div className="wide product-tag-editor"><label htmlFor="product-tags">Tags</label><div className="product-tag-input"><input id="product-tags" list="available-product-tags" value={tagDraft} maxLength={80} onChange={(event) => setTagDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addTag(tagDraft); } }} placeholder="Type a tag and press Enter" /><datalist id="available-product-tags">{availableTags.map((tag) => <option value={tag} key={tag} />)}</datalist><button className="admin-filter" type="button" onClick={() => addTag(tagDraft)}>Add tag</button></div><input type="hidden" name="tags" value={JSON.stringify(tags)} /><div className="product-tag-list">{tags.map((tag) => <span className="product-tag" key={tag}>{tag}<button type="button" aria-label={`Remove ${tag} tag`} onClick={() => setTags((current) => current.filter((item) => item !== tag))}>×</button></span>)}</div></div>
       <label className="product-active"><input name="active" type="checkbox" defaultChecked={product?.active ?? true} /> Show this product in the storefront</label>
