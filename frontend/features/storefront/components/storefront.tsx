@@ -10,7 +10,7 @@ import { formatDefaultAmount } from "@/features/payments/payment-context";
 import type { ApprovedContributor, StorefrontProduct } from "@/features/storefront/server/data";
 import { ThemeToggle } from "@/features/storefront/components/theme-toggle";
 import { ProductImage } from "@/features/storefront/components/product-image";
-import { ChevronDown, Home, ShoppingBasket, Sprout, Store, UserRound } from "lucide-react";
+import { ArrowRight, ChevronDown, Home, ShoppingBasket, Sparkles, Sprout, Store, UserRound } from "lucide-react";
 
 type CartLine = { product: StorefrontProduct; quantity: number };
 type CartContextValue = {
@@ -103,35 +103,51 @@ export function SiteHeader() {
   const isActive = (path: string) => pathname === path || pathname.startsWith(`${path}/`);
 
   return (
-    <header className="site-header organic-navbar-3d organic-water navbar navbar-expand-lg fixed-top">
-      <div className="container-fluid organic-flex organic-flex-between nav-wrap">
-        <Link className="brand" href="/" aria-label="Princess and Brothers home">
-          <Image className="brand-logo" src="/logo.png" alt="Princess and Brothers" width={58} height={58} priority />
-          <span className="brand-name">Princess & Brothers</span>
-        </Link>
-        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#pb-main-nav" aria-controls="pb-main-nav" aria-expanded="false" aria-label="Toggle navigation">
-          <span className="navbar-toggler-icon" />
-        </button>
-        <div className="collapse navbar-collapse" id="pb-main-nav">
-          <nav className="main-nav navbar-nav" aria-label="Main navigation">
-            <Link className={`nav-link organic-nav-link-3d ${pathname === "/" ? "active" : ""}`} href="/"><Home aria-hidden="true" className="nav-icon" size={16} />Home</Link>
-            <Link className={`nav-link organic-nav-link-3d ${isActive("/products") ? "active" : ""}`} href="/products"><Store aria-hidden="true" className="nav-icon" size={16} />Shop</Link>
-            <Link className="nav-link organic-nav-link-3d" href="/#mission"><Sprout aria-hidden="true" className="nav-icon" size={16} />Our mission</Link>
-          </nav>
-          <div className="nav-actions">
-            <AccountMenu currentPath={pathname} />
-            <ThemeToggle />
-            <Link className="cart-link organic-nav-link-3d" href="/cart" aria-label={`Cart with ${itemCount} items`}>
-              <ShoppingBasket aria-hidden="true" size={17} /> Basket <span className="cart-count">{itemCount}</span>
-            </Link>
+    <>
+      <header className="site-header organic-navbar-3d organic-water navbar navbar-expand-lg fixed-top">
+        <div className="container-fluid organic-flex organic-flex-between nav-wrap">
+          <Link className="brand" href="/" aria-label="Princess and Brothers home">
+            <Image className="brand-logo" src="/logo.png" alt="Princess and Brothers" width={58} height={58} priority />
+            <span className="brand-name">Princess & Brothers</span>
+          </Link>
+          <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#pb-main-nav" aria-controls="pb-main-nav" aria-expanded="false" aria-label="Toggle navigation">
+            <span className="navbar-toggler-icon" />
+          </button>
+          <div className="collapse navbar-collapse" id="pb-main-nav">
+            <nav className="main-nav navbar-nav" aria-label="Main navigation">
+              <Link className={`nav-link organic-nav-link-3d ${pathname === "/" ? "active" : ""}`} href="/"><Home aria-hidden="true" className="nav-icon" size={16} />Home</Link>
+              <Link className={`nav-link organic-nav-link-3d ${isActive("/products") ? "active" : ""}`} href="/products"><Store aria-hidden="true" className="nav-icon" size={16} />Shop</Link>
+              <Link className="nav-link organic-nav-link-3d" href="/#mission"><Sprout aria-hidden="true" className="nav-icon" size={16} />Our mission</Link>
+            </nav>
+            <div className="nav-actions">
+              <AccountMenu currentPath={pathname} />
+              <ThemeToggle />
+              <Link className="cart-link organic-nav-link-3d" href="/cart" aria-label={`Cart with ${itemCount} items`}>
+                <ShoppingBasket aria-hidden="true" size={17} /> Basket <span className="cart-count">{itemCount}</span>
+              </Link>
+            </div>
+          </div>
+          <div className="portal-shortcuts">
+            <Link aria-label="Become a contributor" className="portal-shortcut contributor-link" href="/partner" title="Become a contributor"><ContributorIcon /><span className="portal-shortcut-label">Contributor</span></Link>
+            <Link aria-label="Become a driver" className="portal-shortcut driver-link" href="/driver/login" title="Become a driver"><DriverIcon /><span className="portal-shortcut-label">Driver</span></Link>
           </div>
         </div>
-              <div className="portal-shortcuts">
-          <Link aria-label="Become a contributor" className="portal-shortcut contributor-link" href="/partner" title="Become a contributor"><ContributorIcon /><span className="portal-shortcut-label">Contributor</span></Link>
-          <Link aria-label="Become a driver" className="portal-shortcut driver-link" href="/driver/login" title="Become a driver"><DriverIcon /><span className="portal-shortcut-label">Driver</span></Link>
+      </header>
+      <aside className="delivery-promo" aria-label="Free delivery offer">
+        <div className="delivery-promo-inner">
+          <div className="delivery-promo-art" aria-hidden="true">
+            <span className="delivery-promo-orbit" />
+            <span className="delivery-promo-box"><span>PB</span></span>
+            <span className="delivery-promo-basket"><ShoppingBasket size={24} strokeWidth={1.8} /></span>
+          </div>
+          <div className="delivery-promo-copy">
+            <span className="delivery-promo-label"><Sparkles size={14} /> Free delivery</span>
+            <p>Free delivery for orders above <strong>30,000 FRW</strong></p>
+          </div>
+          <Link className="delivery-promo-link" href="/products">Shop now <ArrowRight size={16} /></Link>
         </div>
-      </div>
-    </header>
+      </aside>
+    </>
   );
 }
 
