@@ -4,7 +4,7 @@ body { background:var(--organic-green); color:var(--ink); font-family:var(--sans
 .storefront-shell button:focus-visible,.storefront-shell a:focus-visible,.privacy-consent-banner button:focus-visible,.privacy-consent-banner a:focus-visible { outline:3px solid #507333; outline-offset:3px; }
 .storefront-shell .button,.storefront-shell button:not(.produce-gallery-controls button),.site-header .portal-shortcut { min-height:44px; }
 .storefront-shell .quick-add,.storefront-shell .text-link { align-items:center; display:inline-flex; }
-.storefront-shell { padding-top:90px; }
+.storefront-shell { padding-top:0; }
 a { color:inherit; text-decoration:none; } button,input,select { font:inherit; } button { cursor:pointer; } h1,h2,h3,p { margin-top:0; } h1,h2 { font-weight:500; letter-spacing:-.03em; line-height:1.05; } h1 em,h2 em { font-family:var(--serif); font-weight:500; }
 .content-width { margin-inline:auto; width:min(1180px,calc(100% - 48px)); }
 .nav-wrap { align-items:center; background:var(--cream); display:flex; gap:42px; min-height:78px; padding:0 44px; } .brand { align-items:center; display:flex; gap:10px; min-width:220px; } .brand-mark { color:var(--blue); font-family:var(--serif); font-size:23px; letter-spacing:-.13em; } .brand-mark span { color:var(--navy); font-size:15px; font-style:italic; padding:0 2px; } .brand-name { color:var(--navy); font-size:12px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; }
@@ -137,7 +137,7 @@ a { color:inherit; text-decoration:none; } button,input,select { font:inherit; }
 @media (max-width:900px) { .admin-sidebar { width:190px; } .admin-content { padding:35px 25px 70px; } .admin-topbar { padding-inline:25px; } .admin-metrics { grid-template-columns:repeat(2,1fr); } .admin-overview-grid,.admin-overview-grid.lower,.rbac-layout { grid-template-columns:1fr; } .order-pipeline { grid-template-columns:repeat(5,170px); } }
 @media (max-width:650px) { .admin-layout { display:block; } .admin-sidebar { display:none; } .admin-topbar { min-height:59px; padding-inline:16px; } .admin-mobile-menu { display:block; margin-right:13px; } .admin-topbar>div:first-of-type { align-items:center; display:flex; } .admin-live { display:none; } .admin-content { padding:30px 16px 60px; } .admin-page-heading { align-items:start; display:block; } .admin-page-heading .admin-primary-button { margin-top:20px; } .admin-metrics { gap:1px; } .admin-metric { padding:16px 13px; } .admin-metric strong { font-size:26px; } .admin-overview-grid { display:block; } .admin-card+.admin-card { margin-top:16px; } .admin-page-heading h1 { font-size:46px; } .table-toolbar { flex-wrap:wrap; } .table-toolbar .admin-search { flex-basis:100%; } .partner-list-row { gap:9px; padding-inline:14px; } .partner-date { display:none; } .application-detail-grid { grid-template-columns:1fr; } .permission-heading { display:block; } .permission-heading .admin-primary-button { margin-top:18px; } .permission-group { grid-template-columns:1fr; gap:8px; } .audit-toolbar { flex-wrap:wrap; } .audit-toolbar label { flex-basis:100%; justify-content:space-between; } .sessions-card .card-heading { padding-inline:16px; } }
 .site-header .nav-wrap { background:transparent; width:100%; }
-.site-header.organic-navbar-3d.fixed-top { left:0; position:fixed; right:0; top:0; z-index:1030; }
+.site-header.organic-navbar-3d.fixed-top { position:sticky; top:0; width:100%; z-index:1030; }
 .site-header.organic-navbar-3d.organic-water { overflow:visible; }
 .storefront-shell .site-header { min-height:78px; }
 .hero-section.organic-section-3d { display:flex; align-items:center; min-height:650px; }
@@ -159,7 +159,6 @@ a { color:inherit; text-decoration:none; } button,input,select { font:inherit; }
 .hero-actions .btn-3d { color:#fff; }
 .site-header .navbar-collapse { visibility:visible; }
 @media (max-width:800px) {
-	.storefront-shell { padding-top:76px; }
 	.hero-section.organic-section-3d { display:flex; min-height:690px; }
 	.hero-section .hero-art { bottom:0; inset:0; min-height:100%; right:0; width:100%; }
 	.hero-section .hero-copy.organic-glass-dark { margin:44px 16px; max-width:none; padding:30px 24px; width:calc(100% - 32px); }
@@ -464,7 +463,6 @@ button,.button,.admin-primary-button { border-radius:16px; }
 @media (max-width:600px) {
 	html { font-size:14px; }
 	.content-width { width:calc(100% - 28px); }
-	.storefront-shell { padding-top:74px; }
 	.site-header .nav-wrap { min-height:60px; padding-inline:10px; }
 	.site-header .brand-logo { height:36px; width:36px; }
 	.site-header .navbar-toggler { min-height:38px; padding:5px 8px; }
